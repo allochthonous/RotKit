@@ -37,7 +37,7 @@
       real*8 rtmttp(3,3),tmp(3,3),ell_mat(3,3),ev(3,2)
       real*8 eig_val(3),eig_vec(3,3),evned(3,2)
       character*30 ians2*1
-      parameter (pi=dacos(-1.d0))
+      parameter (pi=3.14159265)
 	  parameter (raddeg =  180. / pi )
 	  parameter (degrad = pi / 180. )
 !f2py intent(in) rlat,rlon,polat,polon,omega,rkaphat,a,b,c,d,e,f
@@ -162,7 +162,7 @@
       real*8 elat(101),elon(101)  
 !f2py intent(in) amaj,amin,az,alat,alon
 !f2py intent(out) elat,elon
-      parameter (pi=dacos(-1.d0))
+      parameter (pi=3.14159265)
 	  parameter (raddeg =  180. / pi )
 	  parameter (degrad = pi / 180. )
       ang = (alon-az)*degrad
@@ -189,3 +189,163 @@
 23041 continue
       return
       end
+c finb2 routine from Pavel Doubrovine's ibfrlib0.3.f other routines moved to 
+c RotKit-nonpython      
+c-----------------------------------------------------------------------
+c
+c       Subroutines used to interpolate between finite rotations
+c
+c       Written by: Pavel V. Doubrovine (2006-2010)
+c
+c       Release 0.3
+c       Last modified: 22.12.2010
+c
+c       NOTE: This software comes with no warranty, use it on your
+c       own risk. Please DO NOT REDISTRIBUTE without contacting
+c       the author. PLEASE REPORT BUGS to: paveld@fys.uio.no
+c
+c       The interpolation method is fully described in the auxiliary
+c       material of
+c
+c       Doubrovine, P.V., and J.A. Tarduno (2008), Linking the Late
+c       Cretaceous to Paleogene Pacific plate and Atlantic bordering
+c       continents using plate circuits and paleomagnetic data,
+c       J. Geophys. Res., 113, B07104, doi:10.1029/2008JB005584.
+c
+c
+c       **** BUGS FIXED in release 0.3 ***
+c
+c       1) Subroutine <matrixl>: The last call to <mulmm>
+c       was:            call mulmm(temp1,temp3,l)
+c       correct usage:  call mulmm(temp1,temp3,l,3,3)
+c       2) got rid of mixed arithmetic assignments
+c
+c-----------------------------------------------------------------------
+c Interpolation between two consecutive finite rotations:
+c
+c       Input:
+c       Euler parameters for rotations 1 & 2 (ep1 and ep2)
+c       ep(3)=(lat,lon,rho)
+c       lat - Euler pole latitude [degrees N]
+c       lon - Euler pole latitude [egrees E]
+c       rho - rotation angle (degrees CCW)
+c
+c       Covariance matrices for rotations 1 & 2 (scaled by kappa),
+c       cov1(3,3) and cov2(3,3) [radian**2]
+c
+c       xi=(t-t1)/(t2-t1) - interpolation parameter. t1 and t2 are
+c       the ages of bounding rotations; t is the age of interpolated
+c       rotation, t1<t<t2.
+c
+c       Output:
+c       Euler parameters (ep) and covariance matrix (cov) for the
+c       interpolated rotation
+c
+c Uses subroutines: EP2R, MATT, MULMM, RPV, PHI, MATRIXL
+c-----------------------------------------------------------------------
+        SUBROUTINE finb2(ep1,cov1,ep2,cov2,xi,ep,cov)
+        INTEGER i,j
+        DOUBLE PRECISION ep1(3),cov1(3,3),ep2(3),cov2(3,3)
+        DOUBLE PRECISION xi,ep(3),cov(3,3)
+        DOUBLE PRECISION deg,ahat1(3,3),ahat2(3,3),s(3,3),ahat(3,3),
+     &  ps(3),p(3),ps1(3),lats,lons,rhos,lat,lon,rho,a(3,3),ml(3,3),
+     &  l1(3,3),l2(3,3),temp1(3,3),temp2(3,3),c1(3,3),c2(3,3)
+        PARAMETER (deg=.0174532925199432958D+0)
+!f2py intent(in) ep1,ep2,cov1,cov2,xi
+!f2py intent(out) ep(3)
+!f2py intent(out) cov(3,3)
+c
+c INTERPOLATE FINITE ROTATION
+c
+c Check if 2 rotations are the same (i.e. no motion between t1 and t2)
+c -> if TRUE set ep=ep1 and go to uncertainties
+c
+        if(ep1(1).eq.ep2(1).and.ep1(2).eq.ep2(2).and.
+     &     ep1(3).eq.ep2(3)) then
+          do 11 i=1,3
+            ep(i)=ep1(i)
+11        continue
+          goto 222
+        endif
+c
+c Calculate rotation matrices A1, A2
+        call ep2r(ep1(1)*deg,ep1(2)*deg,ep1(3)*deg,ahat1)
+        call ep2r(ep2(1)*deg,ep2(2)*deg,ep2(3)*deg,ahat2)
+c
+c Calculate the stage rotation S=A2*A1**t
+        call matt(ahat1,a,3,3)
+        call mulmm(ahat2,a,s,3,3)
+c
+c Calculate rotation pseudovector (ps) for S (S=Phi(ps))
+        call rpv(s,lats,lons,rhos,ps)
+c
+c Calculate the interpolated rotation A=S'*A1, S'=Phi(xi*ps)
+        rhos=xi*rhos
+        call phi(lats,lons,rhos,a)
+        call mulmm(a,ahat1,ahat,3,3)
+c
+c Calculate the pole and angle for A
+        call rpv(ahat,lat,lon,rho,p)
+        ep(1)=lat/deg
+        ep(2)=lon/deg
+        ep(3)=rho/deg
+c
+c
+222     continue
+c
+c
+c UNCERTAINTY OF THE INTERPOLTED ROTATION
+c
+c
+c Check if 2 poles and uncertainties are the same (i.e.,
+c we used the same pole, extrapolated rotation angle for ep2,
+c and chose to set cov2=cov1) -> if TRUE set cov=cov1 and return
+c
+        if(ep1(1).eq.ep2(1).and.ep1(2).eq.ep2(2).and.
+     &     cov1(1,1).eq.cov2(1,1).and.cov1(1,2).eq.cov2(1,2).and.
+     &     cov1(1,3).eq.cov2(1,3).and.cov1(2,2).eq.cov2(2,2).and.
+     &     cov1(2,3).eq.cov2(2,3).and.cov1(3,3).eq.cov2(3,3)) then
+          do 21 i=1,3
+            do 22 j=1,3
+              cov(i,j)=cov1(i,j)
+22          continue
+21        continue
+          goto 333
+        endif
+c
+c Calculate the rotation pseudovector for S'
+        do 141 i=1,3
+          ps1(i)=ps(i)*xi
+141     continue
+c
+c Calculate matrix L and cov(h) for A
+        call matrixl(ahat1,ps,ps1,ml)
+c
+        do 145 i=1,3
+          do 146 j=1,3
+            if(i.eq.j) then
+              l1(i,j)=1.-xi*ml(i,j)
+              l2(i,j)=xi*ml(i,j)
+            else
+              l1(i,j)=-xi*ml(i,j)
+              l2(i,j)=xi*ml(i,j)
+            endif
+146       continue
+145     continue
+c
+        call matt(l1,temp1,3,3)
+        call mulmm(cov1,temp1,temp2,3,3)
+        call mulmm(l1,temp2,c1,3,3)
+c
+        call matt(l2,temp1,3,3)
+        call mulmm(cov2,temp1,temp2,3,3)
+        call mulmm(l2,temp2,c2,3,3)
+c
+        do 147 i=1,3
+          do 148 j=1,3
+            cov(i,j)=c1(i,j)+c2(i,j)
+148       continue
+147     continue
+c
+333     return
+        END

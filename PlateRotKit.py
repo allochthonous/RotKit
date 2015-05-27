@@ -1,16 +1,16 @@
+import sys,os
+#__location__ is important if you want to open files in the RotKit directory when you haven't explicitly set it as the working directory
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 import numpy as np
 import pandas as pd
-import sys,os
 import mpl_toolkits.basemap.pyproj as pyproj
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 from triangle import triangulate, plot as tplot
 #imports fortran complied point rotation and ellipse routines - MUST BE COMPILED using fortran2py on your host system.
-sys.path.append('/Users/crowan/PlateRotPy/')
-import rotatetest as rot
+import RotKit_f as rotkit
 #Imports a table for looking up plate codes - potentially useful when building new rotations?
-os.chdir('/Users/crowan/Dropbox/Research/Platerots/')
-platecodes=pd.read_table('PlateCodes.txt', header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
+platecodes=pd.read_table(os.path.join(__location__,'PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
 def dir2cart(d):
    # converts list or array of vector directions, in degrees, to array of cartesian coordinates, in x,y,z
@@ -101,7 +101,7 @@ def rotate_points(points,rots, order=1):
             for cov in np.arange(0,6):
                 covs[cov].append(row.Covariances[cov])
         inpoles=np.column_stack((rots['RotLat'],rots['RotLong'],rots['RotAng'],rots['Kappahat'],covs[0],covs[1],covs[2],covs[3],covs[4],covs[5],rots['EndAge']))     
-        result=rot.rotatepts(inpoints,inpoles,order)
+        result=rotkit.rotatepts(inpoints,inpoles,order)
         if order==1:
             plates=np.tile(points.Plate,len(rots))
             featages=np.tile(points.FeatureAge,len(rots))
@@ -184,7 +184,7 @@ def invert_covrots(rotpars, inverting='plate'):
         else: 
             fixedplate,movingplate=row.MovingPlate, row.FixedPlate
             startage,endage=row.StartAge,row.EndAge    
-        newrow=pd.DataFrame([[rotation[0],rotation[1],rotation[2],rotpars.iloc[0].Kappahat,covariances,startage,endage,fixedplate,movingplate,rotpars.iloc[0].Points,rotpars.iloc[0].DOF,rotpars.iloc[0].Source]],
+        newrow=pd.DataFrame([[rotation[0],rotation[1],rotation[2],rotpars.iloc[0].Kappahat,covariances,startage,endage,movingplate,fixedplate,rotpars.iloc[0].Points,rotpars.iloc[0].DOF,rotpars.iloc[0].Source]],
                                 columns=['RotLat','RotLong','RotAng','Kappahat','Covariances','StartAge','EndAge','MovingPlate','FixedPlate','Points','DOF','Source'])
         inverted=pd.concat([inverted,newrow], ignore_index=True)
     return inverted

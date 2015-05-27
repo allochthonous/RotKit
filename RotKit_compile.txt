@@ -1,0 +1,6 @@
+#commands for compiling fortran plate rotation code for use in python using f2py
+#This is how I've got it working on my Mac(s) but obviously very compiler dependent
+
+gfortran -c RotKit-nonpython.f -ffixed-line-length-none
+#(needed to add -m32/-m64 flag on some machines)
+f2py -c -m RotKit_f RotKit.f RotKit-nonpython.o --fcompiler=gnu95 --f90flags=-ffixed-line-length-none
