@@ -7,10 +7,10 @@ import mpl_toolkits.basemap.pyproj as pyproj
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 from triangle import triangulate, plot as tplot
-#imports fortran complied point rotation and ellipse routines - MUST BE COMPILED using fortran2py on your host system.
+#imports fortran compiled point rotation and ellipse routines - MUST BE COMPILED using fortran2py on your host system.
 import RotKit_f as rotkit
 #Imports a table for looking up plate codes - potentially useful when building new rotations?
-platecodes=pd.read_table(os.path.join(__location__,'PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
+platecodes=pd.read_table(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
 def dir2cart(d):
    # converts list or array of vector directions, in degrees, to array of cartesian coordinates, in x,y,z
@@ -26,7 +26,7 @@ def dir2cart(d):
             ints=np.array(d[2])
         else:
             ints=np.array([1.])
-    cart= np.array([ints*np.cos(decs)*np.cos(incs),ints*np.sin(decs)*np.cos(incs),ints*np.sin(incs)]).transpose()
+    cart=np.array([ints*np.cos(decs)*np.cos(incs),ints*np.sin(decs)*np.cos(incs),ints*np.sin(incs)]).transpose()
     return cart
 
 def cart2dir(cart):
@@ -57,8 +57,8 @@ def find_plate_from_number(code):
     return platecodes.loc[code]
 
 def load_rots(file):
-    #load rotation poles into a pandas table. Eventually may need a file type flag if loading from different sources. And maybe a seperate one for stage poles?
-    rot_data=pd.read_table(file, header=None, names=['RotName','Method','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])
+    #load rotation poles into a pandas table. Eventually may need a file type flag if loading from different sources. And maybe a seperate one for stage_ poles?
+    rot_data=pd.read_table(file, header=None, names=['RotName','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])
     start_ages=pd.Series(np.repeat(0,len(rot_data)), name='StartAge')
     #currently I'm using named plates - if I move to plate codes (as I should), could do a lookup here to add in plate names as well.
     plates=pd.DataFrame(rot_data.RotName.str.split('-').tolist(), columns=['MovingPlate','FixedPlate'])
@@ -68,7 +68,32 @@ def load_rots(file):
     covs=pd.Series(covs,name='Covariances')
     rot_data=pd.concat([rot_data.RotLat,rot_data.RotLong,rot_data.RotAng,rot_data.Kappahat,covs,start_ages,rot_data.EndAge,plates,rot_data.Points,rot_data.DOF,rot_data.Source], axis=1)
     return rot_data
-    
+
+def load_rotations(file):
+    """
+    Load rotation file: new format with tab-separated plate codes at start of line.
+    """
+    #load rotation poles into a pandas table. Eventually may need a file type flag if loading from different sources. And maybe a seperate one for stage poles?
+    rot_data=pd.read_table(file, header=None, names=['MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])
+    start_ages=pd.Series(np.repeat(0,len(rot_data)), name='StartAge')
+    #combine covariances into single entity because they are always used together - may not be the most elegant way to do it...
+    covs=[]
+    for a,b,c,d,e,f in zip(rot_data.a,rot_data.b, rot_data.c,rot_data.d,rot_data.e, rot_data.f): covs.append([a,b,c,d,e,f])
+    covs=pd.Series(covs,name='Covariances')
+    rot_data=pd.concat([rot_data.RotLat,rot_data.RotLong,rot_data.RotAng,rot_data.Kappahat,covs,start_ages,rot_data.EndAge,rot_data.MovingPlate,rot_data.FixedPlate,rot_data.Points,rot_data.DOF,rot_data.Source], axis=1)
+    return rot_data
+
+def find_rotations(rotations,movingplate,fixedplate):
+    """
+    For a loaded rotation file, will search for desired rotation of first
+    specified plate relative to second. If unsuccessful, will also search
+    for rotations with opposite sense, inverting them if it finds them.
+    """
+    selected=rotations[(rotations.MovingPlate==movingplate) & (rotations.FixedPlate==fixedplate)] 
+    if len(selected)==0: selected=invert_covrots(rotations[(rotations.MovingPlate==fixedplate) & (rotations.FixedPlate==movingplate)])
+    if len(selected)==0: print "No rotations found."
+    else: return selected
+                            
 def load_points(file):
     #again - at some stage could well need to deal with multiple formats: this is my preferred one.
     point_data=pd.read_table(file, header=None, names=['PointLat','PointLong','Plate','ReconstructionAge', 'FeatureAge', 'ErrEllipseMax','ErrEllipseMin','ErrEllipseMaxBearing'])
@@ -76,14 +101,17 @@ def load_points(file):
     point_data=point_data.fillna(0)
     return point_data
 
-def make_points(lats,lons,ages,platecode='None'):
+def make_points(lats,lons,ages,platecode='None',names=[]):
     #turn lists of points and ages into pandas dataframe:  by default assumes they are current position
-    rotages=np.repeat(0,len(lats))
+    if len(names)==0: names=np.repeat('Reconstructed Point',len(lats))
+    rotages=np.repeat(0.,len(lats))
     plates=np.repeat(platecode,len(lats))
-    errmax=np.repeat(0,len(lats))
+    errmax=np.repeat(0.,len(lats))
     errmin,erraz=errmax,errmax
-    return pd.DataFrame(np.column_stack((lats,lons,plates,rotages,ages,errmax,errmin,erraz)),
+    point=pd.DataFrame(np.column_stack((lats,lons,plates,rotages,ages,errmax,errmin,erraz)),
                             columns=['PointLat','PointLong','Plate','ReconstructionAge', 'FeatureAge', 'ErrEllipseMax','ErrEllipseMin','ErrEllipseMaxBearing'])
+    point['Name']=pd.Series(names)
+    return point
 
 def rotate_points(points,rots, order=1):
     if order<1 or order>2:
@@ -102,18 +130,18 @@ def rotate_points(points,rots, order=1):
                 covs[cov].append(row.Covariances[cov])
         inpoles=np.column_stack((rots['RotLat'],rots['RotLong'],rots['RotAng'],rots['Kappahat'],covs[0],covs[1],covs[2],covs[3],covs[4],covs[5],rots['EndAge']))     
         result=rotkit.rotatepts(inpoints,inpoles,order)
-        if order==1:
-            plates=np.tile(points.Plate,len(rots))
-            featages=np.tile(points.FeatureAge,len(rots))
+        plates=np.tile(points.Plate,len(rots))
+        names=np.repeat(points.Name.values,len(rots))
+        featages=np.tile(points.FeatureAge,len(rots))
+        if order==1:            
             rotages=np.repeat(rots.EndAge.values,len(points)) #strange how tile and repeat require different forms...
         else:
             #if order=2 implied
-            plates=np.repeat(points.Plate.values,len(rots))
-            featages=np.repeat(points.FeatureAge.values,len(rots))
             rotages=np.tile(rots.EndAge,len(points))   
         #rotated=np.column_stack((result[:,0],result[:,1],plates,rotages,featages,result[:,3],result[:,4],result[:,5]))
         rotated=pd.DataFrame(np.column_stack((result[:,0],result[:,1],plates,rotages,featages,result[:,3],result[:,4],result[:,5])),
                             columns=['PointLat','PointLong','Plate','ReconstructionAge', 'FeatureAge', 'ErrEllipseMax','ErrEllipseMin','ErrEllipseMaxBearing'])
+    rotated['Name']=pd.Series(names)
     return rotated   
 
 def fetch_rotation(panda_row):
@@ -164,6 +192,11 @@ def add_rots(rot1,rot2):
     return newpole
 
 def invert_covrots(rotpars, inverting='plate'):
+    """
+    Calculate the inverse of a rotation and its convariance matrix
+    By default will also invert the plate codes, set second argument to 'time'
+    to invert starting and ending ages for rotation instead.
+    """
     # calculate inverse rotation and its covariance matrix - adapted from invrot.f (original November 3 1988 J-Y R)
     # a=b**t; cova=b*covb*(b**t) where b, covb =rotation and covariance matrices of original rotation, and a is the transpose of b
     # Input: pandas dataframe (will cycle through multiple rows and invert them)
@@ -261,19 +294,14 @@ def add_covrots(rotationstoadd):
     return added
 
 
-def get_stage_rot(rot1,rot2, return_pseud=0):
+def get_stage_rot(rot1,rot2):
     # stage rotation between two poles where rot1, rot2 are arrays of [lat,long,angle]
     A1=make_rotmat(rot1)
     A2=make_rotmat(rot2)
     S=A2*np.transpose(A1)
     stagerot=rotmat_to_pole(S)
-    if return_pseud==0:
-        return stagerot
-    else: 
-        stagelat,stagelon,stageang=stagerot[0]*np.pi/180,stagerot[1]*np.pi/180,stagerot[2]*np.pi/180
-        pseud=[stageang*np.cos(stagelat)*np.cos(stagelon),stageang*np.cos(stagelat)*np.sin(stagelon)]
-        return stagerot,pseud      
-
+    return stagerot
+ 
 def get_stage_covrots(rotations):
     #from a list of poles, get the stage poles between them
     #currently a bit inflexibile on how it gets startage and endage - may need to tweak a little bit for when not using reconstruction poles
@@ -300,7 +328,7 @@ def get_stage_covrots(rotations):
                     columns=['RotLat','RotLong','RotAng','Kappahat','Covariances','StartAge','EndAge','MovingPlate','FixedPlate','Points','DOF','Source'])
     return output
 
-def interpolate_rots(rot1,rot2,age, return_pseud=0):
+def interpolate_rots(rot1,rot2,age):
     # interpolate between two rotations where rot1, rot2 are arrays of [lat,long,angle,age]
     # Adapted from code provided by Pavel Doubrovine - ibfrlib0.3f
     # make sure age is a float - if not, xi will be calculated as 0
@@ -319,47 +347,49 @@ def interpolate_rots(rot1,rot2,age, return_pseud=0):
         xi=(age-rot1[3])/(rot2[3]-rot1[3])
         A1=make_rotmat(rot1)
         #calculate the stage rotation and calculate rotation matrix for fractional rotation about it
-        stage_rot, pseud=get_stage_rot(rot1,rot2,1)
+        stage_rot=get_stage_rot(rot1,rot2)
         stage_rot[2]=stage_rot[2]*xi
         S_rotmat=make_rotmat(stage_rot)
         #calculate interpolated rotation
         A=S_rotmat*A1
         intpole=rotmat_to_pole(A)
-    if return_pseud==0: return intpole
-    else: return intpole,pseud
+    return intpole
           
 def interpolate_covrots(rotations,ages):
     # Produce interpolated poles and covariances, following the method of Doubrovine and Tarduno (2008)
-    # Adapted from code provided by Pavel Doubrovine - ibfrlib0.3f 
+    # Uses fortran routine ibfrlib0.3.f provided by Pavel Doubrovine, compiled with python wrapped using f2py
     # Input: rotations is a pandas DataFrame, ages is a list of target interpolation ages
     # If there is a list of rotations, will search for the two bracketing rotations for each target age
     # Output: pandas dataframe
+    interpolated=pd.DataFrame()
     ages.sort() #just in case
     for age in ages:
-        print 'Age: '+`age`+'  '
+        skipflag=0
+        #print 'Age: '+`age`+'  '
         age=float(age) #also just in case
-        if age<rotations.EndAge.min() or age>rotations.EndAge.max(): print `age`+' is outside age range of given poles.\n'
+        if age<rotations.EndAge.min() or age>rotations.EndAge.max(): 
+            print `age`+' is outside age range of given poles.\n'
+            skipflag=1
         #checks there is a point in interpolating. If a rotation exists with the given age, can just use that.
         elif len(rotations[rotations.EndAge==age])>0: 
             print `age`+' already exists.\n'
-            interpolated=rotations[rotations.EndAge==age][:1].values
+            newrow=rotations[rotations.EndAge==age][:1]
         else: 
+            #get bracketing rotations
             A1=rotations[rotations.EndAge<age][-1:]
             A2=rotations[rotations.EndAge>age][:1]
-            A1rot=[A1.iloc[0].RotLat,A1.iloc[0].RotLong,A1.iloc[0].RotAng,A1.iloc[0].EndAge]
-            A2rot=[A2.iloc[0].RotLat,A2.iloc[0].RotLong,A2.iloc[0].RotAng,A2.iloc[0].EndAge]
-            newrot,pseud=interpolate_rots(A1rot,A2rot,age,1)
-            #if Euler pole location and covariance matrices the same, keep them the same.
-            if A1rot[0:2]==A2rot[0:2] and A1.Covariances.values==A2.Covariances.values: newcov=A1.Covariances.values
-            #otherwise its complicated calculation time!
-            else:
-                xi=(age-A1rot[3])/(A2.rot[3]-A1rot[3])
-                cov_matrix_A1=make_covmat(A1.Covariances)
-                cov_matrix_A2=make_covmat(A2.Covariances)             
-                pseud1=pseud*xi
-         
-        print interpolated
-        print '\n'
+            A1rot=[A1.iloc[0].RotLat,A1.iloc[0].RotLong,A1.iloc[0].RotAng]
+            A2rot=[A2.iloc[0].RotLat,A2.iloc[0].RotLong,A2.iloc[0].RotAng]
+            xi=(age-A1.iloc[0].EndAge)/(A2.iloc[0].EndAge-A1.iloc[0].EndAge)
+            cov_matrix_A1=make_covmat(A1.iloc[0].Covariances)
+            cov_matrix_A2=make_covmat(A2.iloc[0].Covariances)             
+            newrot,newcovmat=rotkit.finb2(A1rot,cov_matrix_A1,A2rot,cov_matrix_A2,xi)
+            newcov=[newcovmat[0,0],newcovmat[0,1],newcovmat[0,2],newcovmat[1,1],newcovmat[1,2],newcovmat[2,2]]
+            ndata=int((A1.iloc[0].Points+A2.iloc[0].Points)/2) #not sure if this is justified but need something...
+            newrow=pd.DataFrame([[newrot[0],newrot[1],newrot[2],1.0,newcov,A1.iloc[0].StartAge,age,A1.iloc[0].MovingPlate,A1.iloc[0].FixedPlate,ndata,A1.iloc[0].DOF,'Interpolation']],
+                                columns=['RotLat','RotLong','RotAng','Kappahat','Covariances','StartAge','EndAge','MovingPlate','FixedPlate','Points','DOF','Source'])
+        if skipflag==0: interpolated=pd.concat([interpolated,newrow], ignore_index=True)
+    return interpolated
 
 def get_plate_velocity(point,rot,duration=1):
     #calculates the magnitude and direction of the plate motion vector from a point [latitude,longitude] and a Euler rotation [latitude, longitude,rate]
@@ -475,5 +505,45 @@ def reduce_plate_boundary(lons,lats,threshold_length=100, threshold_angle=5):
             red_lat.append(lat)
             summed_length=0
     return red_lon, red_lat        
-  
+ 
+def sphere_ang_dist(lat1,long1,lat2,long2):
+    """
+    calculates the length and bearing of the great circle path between two points
+    using haversine formula     
+    """
+    degrad=np.pi/180
+    #calculate distance between two points on the Earth's surface - returns value in radians
+    #this and other spherical trig routines from http://www.movable-type.co.uk/scripts/latlong.html  
+    dlong=(long2-long1)*degrad
+    dlat=(lat2-lat1)*degrad
+    lat1=lat1*degrad
+    lat2=lat2*degrad 
+    a=np.sin(dlat/2)*np.sin(dlat/2)+np.cos(lat1)*np.cos(lat2)*np.sin(dlong/2)*np.sin(dlong/2)
+    sepdist=2*(np.arctan2(np.sqrt(a),np.sqrt(1-a)))
+    return sepdist/degrad
+   
+def sphere_bearing(lat1,long1,lat2,long2):
+    """
+    bearing of point (lat2, long2) wrt point (lat1,long1)
+    """
+    degrad=np.pi/180
+    dlong=(long2-long1)*degrad
+    lat1=lat1*degrad
+    lat2=lat2*degrad
+    y = np.sin(dlong)*np.cos(lat2)
+    x = np.cos(lat1)*np.sin(lat2)-np.sin(lat1)*np.cos(lat2)*np.cos(dlong)
+    bearing=(np.arctan2(y,x))/degrad
+    if (bearing<0): bearing=bearing+360
+    return bearing
+
+def sphere_point_along_bearing(lat1,long1,bearing,d):
+   """
+   returns lat and long of points given intial lat/long, bearing and distance
+   (all in degrees)
+   """        
+   degrad=np.pi/180
+   lat1,long1,bearing,d=lat1*degrad,long1*degrad,bearing*degrad,d*degrad
+   lat2=np.arcsin(np.sin(lat1)*np.cos(d)+np.cos(lat1)*np.sin(d)*np.cos(bearing))
+   long2=long1+np.arctan2(np.sin(bearing)*np.sin(d)*np.cos(lat1),np.cos(d)-np.sin(lat1)*np.sin(lat2))
+   return lat2/degrad,long2/degrad
    
