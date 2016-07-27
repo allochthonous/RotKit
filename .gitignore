@@ -6,3 +6,5 @@ RotKit-nonpython.o
 PlateRotKit.pyc
 
 APWPKit.pyc
+
+*.pyc
