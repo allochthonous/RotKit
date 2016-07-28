@@ -112,8 +112,32 @@ class EulerRotationModel(object):
         self.rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
         
     def insert_rots(self,newrots):
-        for rotationset in newrots.rotationsets:
-            self.rotationsets.append(rotationset)              
+        """
+        for adding in newly calculated finite rotations
+        given a list of FiniteRotationSets, adds them to the rotation model
+        note: currently no consistency checking, so can add conflicting rotations 
+        """
+        #todo: check for conflicting rotations before adding in new ones.
+        for rotationset in newrots:
+            self.rotationsets.append(rotationset)
+    
+    def remove_rots(self,plate1,plate2=-1):
+        """
+        remove sets of rotations with a particular plate code. If plate2 is specified,
+        will remove rotationsets with that plate pair. 
+        """
+        newrotset=[]
+        for rotationset in self.rotationsets:
+            #if no plate 2 specified, removes any rotationset with fixed or moving plate with plate1 code.
+            #or, if you want to be pedantic, doesn't add it to an updated rotationset list.
+            if plate2==-1:
+                if (rotationset.MovingPlate==plate1 or rotationset.FixedPlate==plate1) is False:
+                    newrotset.append(rotationset)
+            #if plate 2 is specified, looks for the plate1-plate2 (or plate2-plate1) pair.
+            else:
+                if (rotationset.MovingPlate==plate1 and rotationset.FixedPlate==plate2) is False and (rotationset.MovingPlate==plate2 and rotationset.FixedPlate==plate1) is False:
+                    newrotset.append(rotationset)
+        self.rotationsets=newrotset
 
     def find_pairs(self,plate):
         circuits=[]
