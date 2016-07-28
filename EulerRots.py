@@ -308,8 +308,14 @@ class StageRotationSet(object):
         return inverted
                           
     def finiterots(self):
-        print 'Method not yet implemented'
-        #reconstruct the finite rotations by adding the stage rotations. Still to do.
+        """
+        Adds the stage rotations sequentially to produce net/finite rotations.
+        Rotations must be in order.
+        """
+        finiterots=[self.rotations[0]]
+        for rotation in self.rotations[1:]:
+            finiterots.append(finiterots[-1].addrot(rotation))
+        return FiniteRotationSet(finiterots, self.MovingPlate,self.FixedPlate)
    
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,item.FixedPlate,item.StartAge,item.EndAge,item.RotPars[0],item.RotPars[1],item.RotPars[2]] for item in self.rotations],
