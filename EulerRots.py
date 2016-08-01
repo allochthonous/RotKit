@@ -80,9 +80,6 @@ def get_vgps(ages,rotmodel,moving_plate,absolute_ref_frame):
     return pd.DataFrame([[age,point.LatLons.Lat.values[0],point.LatLons.Lon.values[0]] 
                             for point,age in zip(VGPs,ages)],columns=['Age','Lat','Lon'])
 
-
-
-               
                                                                                       
 class EulerRotationModel(object):
     """
@@ -462,7 +459,7 @@ class EulerRotation(object):
     def rotate(self,rotation):
         """
         Rotates rotation pole by EulerRotation rotation (i.e. into a different reference frame)
-        Most relvevent for stage rotations: makes the FixedPlate/MovingPlate a bit tricky potentially.
+        Most relevent for stage rotations: makes the FixedPlate/MovingPlate a bit tricky potentially.
         """ 
         result=rotkit_f.rotatepts(np.array([[self.RotPars.RotLat,self.RotPars.RotLong]]),
                 np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
@@ -482,8 +479,39 @@ class EulerRotation(object):
     def summary(self):
         return pd.Series([self.MovingPlate,self.FixedPlate,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2]],
                             index=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])   
-            
 
+class Point(object):
+    """ Baseclass for a point that can be acted on by rotations
+    
+        Attributes:
+        name: string describing feature
+        PlateCode: tectonic plate code on which point(s) are located
+        LocPars: pandas Series with Latitude and Longitude, plus rotation error ellipse parameters
+        FeatureAge: age of feature
+        ReconstructionAge: age that current set of points has been reconstructed at
+        PlotColor: assigned colour
+        PlotLevel: plot level (defaults to 5)
+    """    
+    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5):
+        """Return object
+        PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+        optionally MaxError,MinError,MaxBearing, otherwise 0 by default
+        """ 
+        self.name = PointPars.Name
+        self.PlateCode=PointPars.PlateCode
+        #not sure how much, but information about reference frame could be useful
+        self.ReferencePlate=PointPars.PlateCode
+        self.FeatureAge=PointPars.FeatureAge
+        self.ReconstructionAge=PointPars.ReconstructionAge
+        #if input does not contain rotation error parameters, creates empty columns 
+        if not 'MaxError' in PointPars:
+            self.LocPars=pd.Series([PointPars.Lat,PointPars.Long,0.,0.,0.],index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
+        else:
+            self.LocPars=pd.Series([PointPars.Lat,PointPars.Long,PointPars.MaxError,PointPars.MinError,PointPars.MaxBearing]
+                                        ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
+        self.PlotColor=PlotColor
+        self.PlotLevel=PlotLevel
+  
 class PointSet(object):
     """ one or more points that can be acted on by rotations
     
