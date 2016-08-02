@@ -497,7 +497,7 @@ class Point(object):
         PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
         optionally MaxError,MinError,MaxBearing, otherwise 0 by default
         """ 
-        self.name = PointPars.Name
+        self.name = PointPars.name
         self.PlateCode=PointPars.PlateCode
         #not sure how much, but information about reference frame could be useful
         self.ReferencePlate=PointPars.PlateCode
@@ -505,13 +505,42 @@ class Point(object):
         self.ReconstructionAge=PointPars.ReconstructionAge
         #if input does not contain rotation error parameters, creates empty columns 
         if not 'MaxError' in PointPars:
-            self.LocPars=pd.Series([PointPars.Lat,PointPars.Long,0.,0.,0.],index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
+            self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,0.,0.,0.],index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
         else:
-            self.LocPars=pd.Series([PointPars.Lat,PointPars.Long,PointPars.MaxError,PointPars.MinError,PointPars.MaxBearing]
+            self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,PointPars.MaxError,PointPars.MinError,PointPars.MaxBearing]
                                         ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
         self.PlotColor=PlotColor
         self.PlotLevel=PlotLevel
+    
+    def mapplot(self,m):
+        self.pltx,self.plty=m(self.LocPars.PointLong,self.LocPars.PointLat)
+        plt.plot(self.pltx,self.plty, 'o', color=self.PlotColor, zorder=self.PlotLevel)
+    
+    def rotate(self,rotation):
+        """Rotates pointset by EulerRotation rotation
+        """ 
+        #intially tried to make a copy and modify it, but it seems you can call the object type to initialise a new version
+        result=rotkit_f.rotatepts(np.array([[self.LocPars.PointLat,self.LocPars.PointLong]]),
+                np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
+                
+        rotated=Point(pd.Series([self.name,self.PlateCode,self.FeatureAge,rotation.EndAge,result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0]],
+                                index=['name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']))
+        rotated.ReferencePlate=rotation.FixedPlate
+        return rotated
+        
+    def reconstruct(self,age,refplate,rotmodel):
+        """
+        Finds the EulerRotation for specified age, then rotates it
+        """
+        #first check if the reference plate is this plate.
+        if refplate==self.PlateCode:
+            return self
+        #another place where adding the zero rotation could trip you up.
+        else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
+
   
+    
+        
 class PointSet(object):
     """ one or more points that can be acted on by rotations
     
