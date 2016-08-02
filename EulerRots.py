@@ -63,15 +63,6 @@ def rotmat_to_pole(rot_matrix):
     pole_ang=np.arctan(toss/(rot_matrix[0,0]+rot_matrix[1,1]+rot_matrix[2,2]-1.0))*180/np.pi
     if temp<0: pole_ang=pole_ang+180
     return [pole_lat,pole_lon,pole_ang]
-
-def get_vgps(ages,rotmodel,moving_plate,absolute_ref_frame):
-    reconstruction_rots=rotmodel.get_rots(moving_plate,absolute_ref_frame,ages)
-    if ages[0]>1: reconstruction_rots.rotations=reconstruction_rots.rotations[1:]
-    NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
-    VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations]
-    return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong] 
-                            for point,age in zip(VGPs,ages)],columns=['Age','Lat','Lon'])
-
                                                                                       
 class EulerRotationModel(object):
     """
@@ -187,7 +178,14 @@ class EulerRotationModel(object):
         if ages:
             rots_got=rots_got.interpolate(ages)
         return rots_got
-    
+        
+    def synthetic_APWP(self,ages,moving_plate,absolute_ref_frame):
+        reconstruction_rots=self.get_rots(moving_plate,absolute_ref_frame,ages)
+        if ages[0]>1: reconstruction_rots.rotations=reconstruction_rots.rotations[1:]
+        NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
+        VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations]
+        return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong] 
+                            for point,age in zip(VGPs,ages)],columns=['Age','Lat','Lon'])    
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
                             item.N,item.rotations[0].EndAge,item.rotations[-1].EndAge] for item in self.rotationsets],
@@ -504,9 +502,13 @@ class Point(object):
         self.PlotColor=PlotColor
         self.PlotLevel=PlotLevel
     
-    def mapplot(self,m):
+    def mapplot(self,m,ellipseflag=0):
+        """
+        plots point on preexisting Basemap. if ellipseflag set to 1, will plot the associated error ellipse
+        """
         self.pltx,self.plty=m(self.LocPars.PointLong,self.LocPars.PointLat)
         plt.plot(self.pltx,self.plty, 'o', color=self.PlotColor, zorder=self.PlotLevel)
+        if ellipseflag==1: m.ellipse(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing)
     
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
@@ -571,7 +573,7 @@ class Point(object):
         at this site - a range of ages can be used because of the possibility of remagnetisation.
         absolute_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
         """
-        VGPs=get_vgps(ages,rotmodel,self.PlateCode,3)
+        VGPs=rotmodel.synthetic_APWP(ages,self.PlateCode,3)
         reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
         rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
         paleoI=[np.arctan(2*np.tan(point.LocPars.PointLat*np.pi/180))*180/np.pi for point in rotated]
@@ -594,12 +596,12 @@ class PointSet(object):
         Attributes:
         SetName: string describing feature
         PlateCode: tectonic plate code on which points are located
-        ReconstructionAge: age that current set of points has been reconstructed at
-        points: List of Points
+        
+        Other Point attributes (e.g. FeatureAge, colors may vary by point.
     """
     def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
         """Return object
-        PointList should be a DataFrame with column names,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+        PointList should be a DataFrame with columns name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
         optionally MaxError,MinError,MaxBearing
         """
         self.points=[Point(point,PlotColor,PlotLevel) for i,point in PointList.iterrows()]
@@ -609,10 +611,9 @@ class PointSet(object):
         self.ReferencePlate=self.PlateCode
         self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
 
-    def mapplot(self,m):
+    def mapplot(self,m,ellipseflag=0):
         for point in self.points:
-            self.pltx,self.plty=m(point.LocPars.PointLong,point.LocPars.PointLat)
-            plt.plot(self.pltx,self.plty, 'o', color=point.PlotColor, zorder=point.PlotLevel)
+            point.mapplot(m,ellipseflag)
     
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
@@ -634,39 +635,15 @@ class PointSet(object):
             return self
         #another place where adding the zero rotation could trip you up.
         else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
-#STILL NEEDS TO BE MODIFIED    
-    def motion_vectors(self,rotation,quadrant='E'):
+  
+    def motion_vectors(self,refplate,rotmodel,age_range=[1,0]):
         """
-        calculates the magnitude and direction of the plate motion vector for this locality, given an Euler rotation
-        outputs a bearing and a velocity in mm/yr or km/Myr, duration calculated from the rotation start and end ages. 
-        Also outputs N-S and E-W components of velocity.
-        Quadrant makes sure vector is with specified half quadrant.
+        calculates the magnitudes and directions of the plate motion vector for each locality relative to the specified
+        reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
+        outputs bearings and rates in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
         """
-        #velocity of point on Earth's surface=cross product of Euler vector (omega) and position vector (r)
-        #N-S component of v vNS = a*|rotrate|*cos(polelat)*sin(sitelong-polelong)
-        #E-W component of v vEW =  a*|rotrate|* [cos(sitelat)*sin(polelat)-sin(sitelat)*cos(polelat)*cos(sitelong-polelong)]
-        #where a=Earth radius
-        #rate of motion = sqrt (vNS^2+vEW^2)
-        #azimuth = 90-atan[vNS/vEW]
-        pointlat=self.LatLons.Lat*np.pi/180
-        pointlong=self.LatLons.Lon*np.pi/180
-        rotlat=rotation.RotPars.RotLat*np.pi/180
-        rotlong=rotation.RotPars.RotLong*np.pi/180
-        rotrate=abs(rotation.RotPars.RotAng)*np.pi/180
-        vNS=6371.*rotrate*np.cos(rotlat)*np.sin(pointlong-rotlong)
-        vEW=6371.*rotrate*(np.cos(pointlat)*np.sin(rotlat)-np.sin(pointlat)*np.cos(rotlat)*np.cos(pointlong-rotlong))
-        azimuth=90.-(180/np.pi*np.arctan(vNS/vEW))
-        if quadrant=='N':
-            azimuth[np.cos(azimuth*np.pi/180.)<0]=azimuth-180.
-        elif quadrant=='S':    
-            azimuth[np.cos(azimuth*np.pi/180.)>0]=azimuth+180.
-        elif quadrant=='W':    
-            azimuth[np.sin(azimuth*np.pi/180.)>0]=azimuth+180.
-        elif quadrant=='E':    
-            azimuth[np.sin(azimuth*np.pi/180.)<0]=azimuth-180.                       
-        return pd.DataFrame(np.column_stack((np.sqrt(vNS**2+vEW**2)/abs(rotation.StartAge-rotation.EndAge),
-                            azimuth,vNS,vEW)),
-                            columns=['Rate','Bearing','NS_component','EW_component'])
+        return pd.DataFrame([point.motion_vector(refplate,rotmodel,age_range) for point in self.points])
+
     def summary(self):
         return pd.DataFrame([[point.PointName,point.PlateCode,point.FeatureAge,point.ReconstructionAge]+point.LocPars.tolist() for point in self.points],
                             columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
@@ -675,17 +652,23 @@ class PointSet(object):
 class Boundary(PointSet):        
     """ line that can be acted on by rotations
     
-        Attributes (inherited from PointSet):
-        name: string describing feature
-        PlateCode: tectonic plate code on which point(s) are located
-        FeatureAge: age of feature
+        SetName: string describing feature
+        PlateCode: tectonic plate code on which points are located
         ReconstructionAge: age that current set of points has been reconstructed at
-        LatLons: pandas DataFrame with Lat and Long points 
-        PlotColor: assigned colour
-        PlotLevel: plot level (defaults to 5)
-    """      
-    def mapplot(self,m,thickness=2):
-        self.pltx,self.plty=m(self.LatLons.Lon.values,self.LatLons.Lat.values)
+        points: List of Points
+    """
+    def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+        """Return object
+        PointList should be a DataFrame with columns name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+        optionally MaxError,MinError,MaxBearing
+        """
+        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+        self.PlotColor=PlotColor
+        self.PlotLevel=PlotLevel
+
+        
+    def mapplot(self,m,thickness=2):          
+        self.pltx,self.plty=m(self.summary().Lon.values,self.summary().Lat.values)
         plt.plot(self.pltx,self.plty, linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel)
 
 class Platelet(PointSet):
@@ -700,10 +683,18 @@ class Platelet(PointSet):
         PlotColor: assigned colour (defaults to grey)
         PlotLevel: plot level (defaults to 5)
     """
+    def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+        """Return object
+        PointList should be a DataFrame with columns name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+        optionally MaxError,MinError,MaxBearing
+        """
+        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+        self.PlotColor=PlotColor
+        self.PlotLevel=PlotLevel
 
     def mapplot(self,m,thickness=2,transparency=0.5):
         """plot polygon on specified basemap"""
-        self.pltx,self.plty=m(self.LatLons.Lon.values,self.LatLons.Lat.values)
+        self.pltx,self.plty=m(self.summary().Lon.values,self.summary().Lat.values)
         self.polygon=Polygon(zip(self.pltx,self.plty),
                              facecolor=self.PlotColor, alpha=transparency, zorder=self.PlotLevel)
         plt.gca().add_patch(self.polygon)
