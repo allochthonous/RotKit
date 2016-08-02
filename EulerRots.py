@@ -64,20 +64,12 @@ def rotmat_to_pole(rot_matrix):
     if temp<0: pole_ang=pole_ang+180
     return [pole_lat,pole_lon,pole_ang]
 
-def get_stage_rot(rot1,rot2):
-    # stage rotation between two poles where rot1, rot2 are arrays of [lat,long,angle]
-    A1=rot1.make_rotmat()
-    A2=rot2.make_rotmat()
-    S=A2*np.transpose(A1)
-    stagerot=rotmat_to_pole(S)
-    return stagerot
- 
 def get_vgps(ages,rotmodel,moving_plate,absolute_ref_frame):
     reconstruction_rots=rotmodel.get_rots(moving_plate,absolute_ref_frame,ages)
     if ages[0]>1: reconstruction_rots.rotations=reconstruction_rots.rotations[1:]
-    NPole=PointSet('VGP',moving_plate,0,0,pd.DataFrame(np.column_stack(([90.],[0.])),columns=['Lat','Lon']))
+    NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
     VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations]
-    return pd.DataFrame([[age,point.LatLons.Lat.values[0],point.LatLons.Lon.values[0]] 
+    return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong] 
                             for point,age in zip(VGPs,ages)],columns=['Age','Lat','Lon'])
 
                                                                                       
@@ -269,8 +261,8 @@ class FiniteRotationSet(object):
     def stagerots(self):
         srots=[]
         #get the stage rotations between each finite rotation in the RotationSet.
-        for rot1,rot2 in zip(self.rotations[:-1],self.rotations[1:]): 
-            srot=get_stage_rot(rot1.RotPars,rot2.RotPars)
+        for rot1,rot2 in zip(self.rotations[:-1],self.rotations[1:]):  
+            srot=rotmat_to_pole(rot2.make_rotmat()*np.transpose(rot1.make_rotmat()))
             #calculation of covariance matrix for stage rotation between A1 and A2 = A1*(cov2-cov1)
             #from Appendix to Doubrovine & Tarduno 2008
             cov_matrix_s=rot1.make_rotmat()*(rot2.make_covmat()-rot1.make_covmat())
@@ -484,7 +476,7 @@ class Point(object):
     """ Baseclass for a point that can be acted on by rotations
     
         Attributes:
-        name: string describing feature
+        PointName: string describing feature
         PlateCode: tectonic plate code on which point(s) are located
         LocPars: pandas Series with Latitude and Longitude, plus rotation error ellipse parameters
         FeatureAge: age of feature
@@ -494,10 +486,10 @@ class Point(object):
     """    
     def __init__(self, PointPars,PlotColor='grey',PlotLevel=5):
         """Return object
-        PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+        PointPars should be a Series/DataFrame row with name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
         optionally MaxError,MinError,MaxBearing, otherwise 0 by default
         """ 
-        self.name = PointPars.name
+        self.PointName = PointPars.Name
         self.PlateCode=PointPars.PlateCode
         #not sure how much, but information about reference frame could be useful
         self.ReferencePlate=PointPars.PlateCode
@@ -523,8 +515,8 @@ class Point(object):
         result=rotkit_f.rotatepts(np.array([[self.LocPars.PointLat,self.LocPars.PointLong]]),
                 np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
                 
-        rotated=Point(pd.Series([self.name,self.PlateCode,self.FeatureAge,rotation.EndAge,result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0]],
-                                index=['name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']))
+        rotated=Point(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,rotation.EndAge,result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0]],
+                                index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']))
         rotated.ReferencePlate=rotation.FixedPlate
         return rotated
         
@@ -537,69 +529,112 @@ class Point(object):
             return self
         #another place where adding the zero rotation could trip you up.
         else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
+        
+    def flowline(self,ages,refplate,rotmodel):
+        """
+        Finds coordinates of line that charts motion of point relative to the reference plate for the specified age points
+        Current output: list of Point objects. Eventually will be a flowline object
+        """
+        return [self.reconstruct(age,refplate,rotmodel) for age in ages]
 
-  
-    
+    def motion_vector(self,refplate,rotmodel,age_range=[1,0]):
+        """
+        calculates the magnitude and direction of the plate motion vector for this locality relative to the specified
+        reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
+        outputs a bearing and a rate in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
+        """
+        #velocity of point on Earth's surface=cross product of Euler vector (omega) and position vector (r)
+        #N-S component of v vNS = a*|rotrate|*cos(polelat)*sin(sitelong-polelong)
+        #E-W component of v vEW =  a*|rotrate|* [cos(sitelat)*sin(polelat)-sin(sitelat)*cos(polelat)*cos(sitelong-polelong)]
+        #where a=Earth radius
+        #rate of motion = sqrt (vNS^2+vEW^2)
+        #azimuth = 90-atan[vNS/vEW]
+        pointlat=self.LocPars.PointLat*np.pi/180
+        pointlong=self.LocPars.PointLong*np.pi/180
+        #get the stage rotation over the relevant interval.
+        rotation=rotmodel.get_rots(self.PlateCode,refplate,age_range).stagerots().rotations[0]
+        if age_range[0]>age_range[1]:
+            rotation=rotation.invert('time')  
+        rotlat=rotation.RotPars.RotLat*np.pi/180
+        rotlong=rotation.RotPars.RotLong*np.pi/180
+        rotrate=abs(rotation.RotPars.RotAng)*np.pi/180
+        vNS=6371.*rotrate*np.cos(rotlat)*np.sin(pointlong-rotlong)
+        vEW=6371.*rotrate*(np.cos(pointlat)*np.sin(rotlat)-np.sin(pointlat)*np.cos(rotlat)*np.cos(pointlong-rotlong))
+        azimuth=90.-(180/np.pi*np.arctan(vNS/vEW))
+        return pd.Series([np.sqrt(vNS**2+vEW**2)/abs(rotation.StartAge-rotation.EndAge),
+                            azimuth,np.sqrt(vNS**2+vEW**2),vNS,vEW],
+                            index=['Rate','Bearing','Distance','NS_component','EW_component'])
+                            
+    def predict_DI(self,ages,rotmodel,abs_ref_frame):
+        """
+        Predicts the Declination and Inclination that should be observed from samples of age ages
+        at this site - a range of ages can be used because of the possibility of remagnetisation.
+        absolute_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
+        """
+        VGPs=get_vgps(ages,rotmodel,self.PlateCode,3)
+        reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
+        rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
+        paleoI=[np.arctan(2*np.tan(point.LocPars.PointLat*np.pi/180))*180/np.pi for point in rotated]
+        pp=np.array(([np.sin((90-vgp_lat)*np.pi/180) for vgp_lat in VGPs.Lat]))
+        dphi=np.array(([np.sin((vgp_lon-self.LocPars.PointLong)*np.pi/180) for vgp_lon in VGPs.Lon]))
+        pm=np.array(([np.sin((90-point.LocPars.PointLat)*np.pi/180) for point in rotated]))
+        paleoD=np.arcsin(pp*dphi/pm)*180/np.pi
+        return pd.DataFrame(np.column_stack((ages,[point.LocPars.PointLat for point in rotated],[point.LocPars.PointLong for point in rotated],paleoD,paleoI)), 
+                                        columns=['Age','Lat','Lon','PredDec','PredInc'])
+        
+    def summary(self):
+        return pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.ReconstructionAge]++self.LocPars.tolist(),
+                                index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])       
         
 class PointSet(object):
-    """ one or more points that can be acted on by rotations
+    """ Baseclass for a set of Points assigned to the same plate that can be operated on. 
+        Methods match those for Point: basically loop through them
+        Mapplot plots as individual points.
     
         Attributes:
-        name: string describing feature
-        PlateCode: tectonic plate code on which point(s) are located
-        LatLons: pandas DataFrame with Lat and Long points, plus rotation error ellipse parameters
-        FeatureAge: age of feature
+        SetName: string describing feature
+        PlateCode: tectonic plate code on which points are located
         ReconstructionAge: age that current set of points has been reconstructed at
-        PlotColor: assigned colour
-        PlotLevel: plot level (defaults to 5)
+        points: List of Points
     """
-    def __init__(self, name,PlateCode,FeatureAge,ReconstructionAge,LatLons,PlotColor='grey',PlotLevel=5):
+    def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
         """Return object
-        NB LatLons should be imported as a pandas dataframe with Lat and Lon columns
-        """ 
-        self.name = name
-        self.PlateCode=PlateCode
+        PointList should be a DataFrame with column names,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+        optionally MaxError,MinError,MaxBearing
+        """
+        self.points=[Point(point,PlotColor,PlotLevel) for i,point in PointList.iterrows()]
+        self.SetName = SetName
+        self.PlateCode=PointList.iloc[0].PlateCode
         #not sure how much, but information about reference frame could be useful
-        self.ReferencePlate=PlateCode
-        self.FeatureAge=FeatureAge
-        self.ReconstructionAge=ReconstructionAge
-        self.LatLons=LatLons
-        #if LatLons table does not contain rotation error parameters, creates empty columns 
-        if not 'MaxError' in self.LatLons:
-            self.LatLons['MaxError']=0
-            self.LatLons['MinError']=0
-            self.LatLons['MaxBearing']=0
-        
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
-    
+        self.ReferencePlate=self.PlateCode
+        self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
+
     def mapplot(self,m):
-        self.pltx,self.plty=m(self.LatLons.Lon.values,self.LatLons.Lat.values)
-        plt.plot(self.pltx,self.plty, 'o', color=self.PlotColor, zorder=self.PlotLevel)
+        for point in self.points:
+            self.pltx,self.plty=m(point.LocPars.PointLong,point.LocPars.PointLat)
+            plt.plot(self.pltx,self.plty, 'o', color=point.PlotColor, zorder=point.PlotLevel)
     
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
         """ 
-        #intially tried to make a copy and modify it, but it seems you can call the object type to initialise a new version
-        result=rotkit_f.rotatepts(self.LatLons.as_matrix(['Lat','Lon']),
-                np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
-        rotated=type(self)(self.name,self.PlateCode,self.FeatureAge,rotation.EndAge,
-                        pd.DataFrame(np.column_stack((result[:,1],result[:,0],result[:,3],result[:,4],result[:,5])),
-                        columns=['Lon','Lat','MaxError','MinError','MaxBearing']),
-                        self.PlotColor,self.PlotLevel)
+        rotated=copy.deepcopy(self)
+        #this is a lot less fiddly than converting rotated point list into format where can create PointSet de novo
+        rotated.points=[point.rotate(rotation) for point in self.points]
         rotated.ReferencePlate=rotation.FixedPlate
+        rotated.ReconstructionAge=rotation.EndAge
         return rotated
     
     def reconstruct(self,age,refplate,rotmodel):
         """
         Finds the EulerRotation for specified age, then rotates it
+        Todo: drop points where FeatureAge<ReconstructionAge?
         """
         #first check if the reference plate is this plate.
         if refplate==self.PlateCode:
             return self
         #another place where adding the zero rotation could trip you up.
         else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
-    
+#STILL NEEDS TO BE MODIFIED    
     def motion_vectors(self,rotation,quadrant='E'):
         """
         calculates the magnitude and direction of the plate motion vector for this locality, given an Euler rotation
@@ -632,6 +667,9 @@ class PointSet(object):
         return pd.DataFrame(np.column_stack((np.sqrt(vNS**2+vEW**2)/abs(rotation.StartAge-rotation.EndAge),
                             azimuth,vNS,vEW)),
                             columns=['Rate','Bearing','NS_component','EW_component'])
+    def summary(self):
+        return pd.DataFrame([[point.PointName,point.PlateCode,point.FeatureAge,point.ReconstructionAge]+point.LocPars.tolist() for point in self.points],
+                            columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
   
                
 class Boundary(PointSet):        
