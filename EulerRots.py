@@ -583,12 +583,13 @@ class Point(object):
         Current output: list of Point objects. Eventually will be a flowline object
         """
         return [self.reconstruct(age,refplate,rotmodel) for age in ages]
-
-    def motion_vector(self,refplate,rotmodel,age_range=[1,0]):
+  
+    
+    def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0):
         """
         calculates the magnitude and direction of the plate motion vector for this locality relative to the specified
-        reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
-        outputs a bearing and a rate in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
+        reference plate. By default, it will calculate the most recent interval (last 0.78 Ma of motion).
+        outputs a bearing and a rate in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement. 
         """
         #velocity of point on Earth's surface=cross product of Euler vector (omega) and position vector (r)
         #N-S component of v vNS = a*|rotrate|*cos(polelat)*sin(sitelong-polelong)
@@ -596,21 +597,32 @@ class Point(object):
         #where a=Earth radius
         #rate of motion = sqrt (vNS^2+vEW^2)
         #azimuth = 90-atan[vNS/vEW]
-        pointlat=self.LocPars.PointLat*np.pi/180
-        pointlong=self.LocPars.PointLong*np.pi/180
-        #get the stage rotation over the relevant interval.
-        rotation=rotmodel.get_rots(self.PlateCode,refplate,age_range).stagerots().rotations[0]
-        if age_range[0]>age_range[1]:
-            rotation=rotation.invert('time')  
-        rotlat=rotation.RotPars.RotLat*np.pi/180
-        rotlong=rotation.RotPars.RotLong*np.pi/180
-        rotrate=abs(rotation.RotPars.RotAng)*np.pi/180
+
+        #get Lat and Long of starting position of point in relevant reference frame
+        #if start age or endage is 0, causes problems... (because if not there is an additional 0 Ma rotation)
+        if startage==0 or endage==0: rotindex=0
+        else: rotindex=1
+        
+        reconstruction_rots=rotmodel.get_rots(self.PlateCode,refplate,[startage,endage])
+        latlong=self.rotate(reconstruction_rots.rotations[rotindex]).LocPars   
+        pointlat=latlong.PointLat*np.pi/180
+        pointlong=latlong.PointLong*np.pi/180
+        
+        #get the stage rotation over the relevant interval, and invert if going forward in time (normally will be)
+        stagerot=reconstruction_rots.stagerots().rotations[rotindex]
+        if startage>endage:
+            stagerot=stagerot.invert('time')
+            
+        rotlat=stagerot.RotPars.RotLat*np.pi/180
+        rotlong=stagerot.RotPars.RotLong*np.pi/180
+        rotrate=stagerot.RotPars.RotAng*np.pi/180
         vNS=6371.*rotrate*np.cos(rotlat)*np.sin(pointlong-rotlong)
         vEW=6371.*rotrate*(np.cos(pointlat)*np.sin(rotlat)-np.sin(pointlat)*np.cos(rotlat)*np.cos(pointlong-rotlong))
-        azimuth=90.-(180/np.pi*np.arctan(vNS/vEW))
-        return pd.Series([np.sqrt(vNS**2+vEW**2)/abs(rotation.StartAge-rotation.EndAge),
+        azimuth=90.-(180/np.pi*np.arctan2(vNS,vEW))
+        if azimuth<0.: azimuth=azimuth+360.
+        return pd.Series([stagerot.StartAge,stagerot.EndAge,np.sqrt(vNS**2+vEW**2)/abs(stagerot.StartAge-stagerot.EndAge),
                             azimuth,np.sqrt(vNS**2+vEW**2),vNS,vEW],
-                            index=['Rate','Bearing','Distance','NS_component','EW_component'])
+                            index=['StartAge','EndAge','Rate','Bearing','Distance','NS_component','EW_component'])
                             
     def predict_DI(self,ages,rotmodel,abs_ref_frame=3):
         """
