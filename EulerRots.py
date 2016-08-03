@@ -63,7 +63,50 @@ def rotmat_to_pole(rot_matrix):
     pole_ang=np.arctan(toss/(rot_matrix[0,0]+rot_matrix[1,1]+rot_matrix[2,2]-1.0))*180/np.pi
     if temp<0: pole_ang=pole_ang+180
     return [pole_lat,pole_lon,pole_ang]
-                                                                                      
+
+def sphere_ang_dist(lat1,long1,lat2,long2):
+    """
+    calculates the length and bearing of the great circle path between two points
+    using haversine formula     
+    """
+    degrad=np.pi/180
+    #calculate distance between two points on the Earth's surface - returns value in radians
+    #this and other spherical trig routines from http://www.movable-type.co.uk/scripts/latlong.html  
+    dlong=(long2-long1)*degrad
+    dlat=(lat2-lat1)*degrad
+    lat1=lat1*degrad
+    lat2=lat2*degrad 
+    a=np.sin(dlat/2)*np.sin(dlat/2)+np.cos(lat1)*np.cos(lat2)*np.sin(dlong/2)*np.sin(dlong/2)
+    sepdist=2*(np.arctan2(np.sqrt(a),np.sqrt(1-a)))
+    return sepdist/degrad
+   
+def sphere_bearing(lat1,long1,lat2,long2):
+    """
+    bearing of point (lat2, long2) wrt point (lat1,long1)
+    """
+    degrad=np.pi/180
+    dlong=(long2-long1)*degrad
+    lat1=lat1*degrad
+    lat2=lat2*degrad
+    y = np.sin(dlong)*np.cos(lat2)
+    x = np.cos(lat1)*np.sin(lat2)-np.sin(lat1)*np.cos(lat2)*np.cos(dlong)
+    bearing=(np.arctan2(y,x))/degrad
+    if (bearing<0): bearing=bearing+360
+    return bearing
+
+def sphere_point_along_bearing(lat1,long1,bearing,d):
+   """
+   returns lat and long of points given intial lat/long, bearing and distance
+   (all in degrees)
+   """        
+   degrad=np.pi/180
+   lat1,long1,bearing,d=lat1*degrad,long1*degrad,bearing*degrad,d*degrad
+   lat2=np.arcsin(np.sin(lat1)*np.cos(d)+np.cos(lat1)*np.sin(d)*np.cos(bearing))
+   long2=long1+np.arctan2(np.sin(bearing)*np.sin(d)*np.cos(lat1),np.cos(d)-np.sin(lat1)*np.sin(lat2))
+   return lat2/degrad,long2/degrad
+                                                                                        
+                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                        
 class EulerRotationModel(object):
     """
     Created from a rotation file: assumes presence of header with
@@ -180,12 +223,14 @@ class EulerRotationModel(object):
         return rots_got
         
     def synthetic_APWP(self,ages,moving_plate,absolute_ref_frame):
+        if ages[0]==0.: ages[0]=0.01 #Gets a bit fussy for the 0 rotation.
         reconstruction_rots=self.get_rots(moving_plate,absolute_ref_frame,ages)
-        if ages[0]>1: reconstruction_rots.rotations=reconstruction_rots.rotations[1:]
+        #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
         NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
-        VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations]
-        return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong] 
-                            for point,age in zip(VGPs,ages)],columns=['Age','Lat','Lon'])    
+        VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations[1:]] #zero rotation: more trouble than it's worth?   
+        return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong] for point,age in zip(VGPs,ages)],
+                                columns=['Age','Lat','Lon']) 
+           
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
                             item.N,item.rotations[0].EndAge,item.rotations[-1].EndAge] for item in self.rotationsets],
@@ -567,13 +612,13 @@ class Point(object):
                             azimuth,np.sqrt(vNS**2+vEW**2),vNS,vEW],
                             index=['Rate','Bearing','Distance','NS_component','EW_component'])
                             
-    def predict_DI(self,ages,rotmodel,abs_ref_frame):
+    def predict_DI(self,ages,rotmodel,abs_ref_frame=3):
         """
         Predicts the Declination and Inclination that should be observed from samples of age ages
         at this site - a range of ages can be used because of the possibility of remagnetisation.
         absolute_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
         """
-        VGPs=rotmodel.synthetic_APWP(ages,self.PlateCode,3)
+        VGPs=rotmodel.synthetic_APWP(ages,self.PlateCode,abs_ref_frame)
         reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
         rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
         paleoI=[np.arctan(2*np.tan(point.LocPars.PointLat*np.pi/180))*180/np.pi for point in rotated]
@@ -585,7 +630,7 @@ class Point(object):
                                         columns=['Age','Lat','Lon','PredDec','PredInc'])
         
     def summary(self):
-        return pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.ReconstructionAge]++self.LocPars.tolist(),
+        return pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.ReconstructionAge]+self.LocPars.tolist(),
                                 index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])       
         
 class PointSet(object):
@@ -700,44 +745,24 @@ class Platelet(PointSet):
         plt.gca().add_patch(self.polygon)
         plt.plot(self.pltx,self.plty, color=self.PlotColor, linewidth=thickness,zorder=self.PlotLevel)
         
-
-
-#actually going to need pmag only as well; potentially AMS only although not in this study
-class AMS_Locality(object):
+class AMS_Locality(Point):
     """ A sampling site with associated AMS data 
-    Attributes:
-    name: string describing feature
-    PlateCode
-    LatLons: a pandas series that contains Latitude, Longitude and if specified error ellipse parameters MaxError,MinError,MaxBearing
-    Age_info: a pandas series that contains FeatureAge, FeatureAgeError
+    New Attributes:
     AMS_info: a pandas series that contains AMS ellipsoid information (currently just lineation orientation and error)
-    PlotColor: assigned colour
-    PlotLevel: plot level (defaults to 5)
     """
-    def __init__(self, AMS_data,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
-        """Return object
-        
-        """ 
-        self.Name=AMS_data.Name
-        self.PlateCode=AMS_data.Blockcode
-        if not 'MaxError' in AMS_data:
-            AMS_data.MaxError=0.
-            AMS_data.MinError=0.
-            AMS_data.MaxBearing=0.
-        self.LatLons=pd.Series([AMS_data.Lat,AMS_data.Long,AMS_data.MaxError,AMS_data.MinError,AMS_data.MaxBearing]
-                                ,index=['Lat','Lon','MaxError','MinError','MaxBearing'])
-        if not 'ReconstructionAge' in AMS_data:
-            AMS_data.ReconstructionAge=0.
-        self.Age_info=pd.Series([AMS_data.Age,AMS_data.Age_err,AMS_data.ReconstructionAge],index=['FeatureAge','Age_err','ReconstructionAge'])
-        self.AMS_info=pd.Series([AMS_data.AMS_max,AMS_data.max_err],index=['AMS_max','AMS_max_err'])
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
+    def __init__(self, AMSpars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
+        Point.__init__(self,AMSpars,PlotColor,PlotLevel)
+        #need to add whole ellispoid info here eventually...
+        self.AMS_info=pd.Series([AMSpars.AMS_max,AMSpars.max_err],index=['k_max','k_max_err'])
         self.PlotSymbolSize=PlotSymbolSize
         
-    def mapplot(self,m,plottrend=-1):
+    def mapplot(self,m,plottrend=0):
+        """
+        plottrend=1 will add the trend of the sigma1 direction to the symbol.
+        """
         self.pltx,self.plty=m(self.LatLons.Lon,self.LatLons.Lat)
         plt.plot(self.pltx,self.plty, marker='o',ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel)
-        if plottrend>0:
+        if plottrend==1:
             trend=self.sigma_1()
             plt.quiver(self.pltx,self.plty,np.sin(trend*np.pi/180.),np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel)
             plt.quiver(self.pltx,self.plty,-np.sin(trend*np.pi/180.),-np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel)
@@ -756,65 +781,24 @@ class AMS_Locality(object):
             if b<0: s1_dir=s1_dir-180. 
         if s1_dir>360.: s1_dir=s1_dir-360   
         return s1_dir
-
+        
     def rotate(self,rotation):
-        """
-        Rotates pointset by EulerRotation rotation
+        """Rotates pointset by EulerRotation rotation
         Also rotates the AMS_max direction: doesn't presently incorporate rotation errors
         """ 
-        result=rotkit_f.rotatepts(np.array([[self.LatLons.Lat,self.LatLons.Lon]]),
+        #to rotate the fabric eigenvector declinations,need to have some kind of reference.
+        ref_lat,ref_long=sphere_point_along_bearing(self.LocPars.PointLat,self.LocPars.PointLong,self.AMS_info.k_max,0.1)
+        result=rotkit_f.rotatepts(np.column_stack(([self.LocPars.PointLat,ref_lat],[self.LocPars.PointLong,ref_long])),
                 np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
-        rotated=AMS_Locality(pd.Series([self.Name,self.PlateCode,self.Age_info.FeatureAge,self.Age_info.Age_err,rotation.EndAge,
-                        result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0],
-                        self.AMS_info.AMS_max-rotation.RotPars.RotAng,self.AMS_info.AMS_max_err],
-                        index=['Name','Blockcode','Age','Age_err','ReconstructionAge','Lat','Long','MaxError','MinError','MaxBearing','AMS_max','max_err']),
-                        self.PlotColor,self.PlotLevel)
+        #by calculating the bearing to the rotated reference point can rotate the eigenvector dec               
+        rotated=AMS_Locality(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,rotation.EndAge,
+                                    result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0],
+                                    sphere_bearing(result[:,0][0],result[:,1][0],result[:,0][1],result[:,1][1]),self.AMS_info.k_max_err],
+                                index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing','AMS_max','max_err']),
+                                self.PlotColor,self.PlotLevel,self.PlotSymbolSize)
         rotated.ReferencePlate=rotation.FixedPlate
         return rotated
-    
-    def reconstruct(self,age,refplate,rotmodel):
-        """
-        Finds the EulerRotation for specified age, then rotates it
-        """
-        #first check if the reference plate is this plate.
-        if refplate==self.PlateCode:
-            return self
-        #another place where adding the zero rotation could trip you up.
-        else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
-        
-    def motion_vector(self,rotation,quadrant='E'):
-        """
-        calculates the magnitude and direction of the plate motion vector for this locality, given an Euler rotation
-        outputs a bearing and a velocity in mm/yr or km/Myr, duration calculated from the rotation start and end ages. 
-        Also outputs N-S and E-W components of velocity.
-        """
-        #velocity of point on Earth's surface=cross product of Euler vector (omega) and position vector (r)
-        #N-S component of v vNS = a*|rotrate|*cos(polelat)*sin(sitelong-polelong)
-        #E-W component of v vEW =  a*|rotrate|* [cos(sitelat)*sin(polelat)-sin(sitelat)*cos(polelat)*cos(sitelong-polelong)]
-        #where a=Earth radius
-        #rate of motion = sqrt (vNS^2+vEW^2)
-        #azimuth = 90-atan[vNS/vEW]
-        pointlat=self.LatLons.Lat*np.pi/180
-        pointlong=self.LatLons.Lon*np.pi/180
-        rotlat=rotation.RotPars.RotLat*np.pi/180
-        rotlong=rotation.RotPars.RotLong*np.pi/180
-        rotrate=abs(rotation.RotPars.RotAng)*np.pi/180
-        vNS=6371.*rotrate*np.cos(rotlat)*np.sin(pointlong-rotlong)
-        vEW=6371.*rotrate*(np.cos(pointlat)*np.sin(rotlat)-np.sin(pointlat)*np.cos(rotlat)*np.cos(pointlong-rotlong))
-        azimuth=90.-(180/np.pi*np.arctan(vNS/vEW))
-        a,b=np.cos(azimuth*np.pi/180.), np.sin(azimuth*np.pi/180.)
-        if quadrant=='N':
-            if a<0: azimuth=azimuth-180.
-        elif quadrant=='S':
-            if a>0: azimuth=azimuth+180.
-        elif quadrant=='E':
-            if b<0: azimuth=azimuth-180.
-        elif quadrant=='W':
-            if b>0: azimuth=azimuth+180.
-        return pd.Series([np.sqrt(vNS**2+vEW**2)/abs(rotation.StartAge-rotation.EndAge),
-                            azimuth,vNS,vEW],
-                            index=['Rate','Bearing','NS_component','EW_component'])
-    
+
     def strain_history(self,rotmodel,ages,converging_plate,refplate,quadrant='E',converge_on_ref=-1):
         """
         Reconstructs the strain history by rotating the locality according to the rotation model
@@ -837,23 +821,6 @@ class AMS_Locality(object):
             output.append([stagerot.StartAge,stagerot.EndAge,rotated.LatLons.Lat,rotated.LatLons.Lon,vector.Rate,vector.Bearing])
         return pd.DataFrame(output,columns=['StartAge','EndAge','Lat','Lon','Rate','Bearing'])
         
-    def predict_DI(self,ages,rotmodel,abs_ref_frame):
-        """
-        Predicts the Declination and Inclination that should be observed from samples of age ages
-        at this site - a range of ages can be used because of the possibility of remagnetisation.
-        absolute_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
-        """
-        VGPs=get_vgps(ages,rotmodel,self.PlateCode,3)
-        reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
-        rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
-        paleoI=[np.arctan(2*np.tan(point.LatLons.Lat*np.pi/180))*180/np.pi for point in rotated]
-        pp=np.array(([np.sin((90-vgp_lat)*np.pi/180) for vgp_lat in VGPs.Lat]))
-        dphi=np.array(([np.sin((vgp_lon-self.LatLons.Lon)*np.pi/180) for vgp_lon in VGPs.Lon]))
-        pm=np.array(([np.sin((90-point.LatLons.Lat)*np.pi/180) for point in rotated]))
-        paleoD=np.arcsin(pp*dphi/pm)*180/np.pi
-        return pd.DataFrame(np.column_stack((ages,[point.LatLons.Lat for point in rotated],[point.LatLons.Lon for point in rotated],paleoD,paleoI)), 
-                                        columns=['Age','Lat','Lon','PredDec','PredInc'])
-
 
 class PMag_Locality(object):
     """ A sampling site with associated AMS data 
