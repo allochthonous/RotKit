@@ -585,11 +585,12 @@ class Point(object):
         return [self.reconstruct(age,refplate,rotmodel) for age in ages]
   
     
-    def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0):
+    def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0):
         """
         calculates the magnitude and direction of the plate motion vector for this locality relative to the specified
         reference plate. By default, it will calculate the most recent interval (last 0.78 Ma of motion).
-        outputs a bearing and a rate in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement. 
+        outputs a bearing and a rate in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
+        set fixed=1 to show vector for refplate relative to point 
         """
         #velocity of point on Earth's surface=cross product of Euler vector (omega) and position vector (r)
         #N-S component of v vNS = a*|rotrate|*cos(polelat)*sin(sitelong-polelong)
@@ -612,7 +613,8 @@ class Point(object):
         stagerot=reconstruction_rots.stagerots().rotations[rotindex]
         if startage>endage:
             stagerot=stagerot.invert('time')
-            
+        if fixed==1:
+            stagerot=stagerot.invert()        
         rotlat=stagerot.RotPars.RotLat*np.pi/180
         rotlong=stagerot.RotPars.RotLong*np.pi/180
         rotrate=stagerot.RotPars.RotAng*np.pi/180
@@ -811,28 +813,22 @@ class AMS_Locality(Point):
         rotated.ReferencePlate=rotation.FixedPlate
         return rotated
 
-    def strain_history(self,rotmodel,ages,converging_plate,refplate,quadrant='E',converge_on_ref=-1):
+    def strain_history(self,rotmodel,ages,moving_plate,changeref=-1):
         """
-        Reconstructs the strain history by rotating the locality according to the rotation model
-        then calculating the relative plate motion vector from the stage pole. converge_on_ref option 
-        allows you to look at plate motion vector relative to the fixed plate, rather than the deforming block itself
+        Reconstructs plate vector directions over ages according to the rotation model
+        Assumes this corresponds to maximum strain axis for region.
+        change_ref option allows you to look at plate motion vector relative to the fixed plate
+        inboard of the deforming region, if have specified small block codes; set it to the relevent platecode.
+        Note: assumes that you want forward motion, so will reverse age order.
         """
-        reconstruction_rots=rotmodel.get_rots(self.PlateCode,refplate,ages)
-        if converge_on_ref<0:  
-            StageRotations=[]
-            #need to rotate stagerots back to reference plate
-            for rot, stagerot in zip(reconstruction_rots.rotations, rotmodel.get_rots(converging_plate,self.PlateCode,ages).stagerots().rotations):
-                StageRotations.append(stagerot.rotate(rot))
-            StageRotations=StageRotationSet(StageRotations,self.PlateCode,converging_plate)
-        else:
-            StageRotations=rotmodel.get_rots(converging_plate,refplate,ages).stagerots()            
-        output=[]
-        for rot,stagerot in zip(reconstruction_rots.rotations[1:],StageRotations.invert().rotations):
-            rotated=self.rotate(rot)
-            vector=rotated.motion_vector(stagerot,quadrant)
-            output.append([stagerot.StartAge,stagerot.EndAge,rotated.LatLons.Lat,rotated.LatLons.Lon,vector.Rate,vector.Bearing])
-        return pd.DataFrame(output,columns=['StartAge','EndAge','Lat','Lon','Rate','Bearing'])
-        
+        ages.reverse()
+        if changeref>0:
+            ActualPlate=self.PlateCode
+            self.PlateCode=changeref
+        result=pd.DataFrame([self.motion_vector(moving_plate,rotmodel,age1,age2,1) for age1,age2 in zip (ages[:-1],ages[1:])])
+        if changeref>0:
+            self.PlateCode=ActualPlate
+        return result
 
 class PMag_Locality(object):
     """ A sampling site with associated AMS data 
