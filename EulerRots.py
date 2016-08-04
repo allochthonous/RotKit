@@ -668,6 +668,7 @@ class PointSet(object):
         self.PlateCode=PointList.iloc[0].PlateCode
         #not sure how much, but information about reference frame could be useful
         self.ReferencePlate=self.PlateCode
+        self.FeatureAge=PointList.iloc[0].FeatureAge
         self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
 
     def mapplot(self,m,ellipseflag=0):
