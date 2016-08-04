@@ -769,6 +769,7 @@ class AMS_Locality(Point):
         #need to add whole ellispoid info here eventually...
         self.AMS_info=pd.Series([AMSpars.AMS_max,AMSpars.max_err],index=['k_max','k_max_err'])
         self.PlotSymbolSize=PlotSymbolSize
+        self.Age_err=AMSpars.Age_err
         
     def mapplot(self,m,plottrend=0):
         """
@@ -782,7 +783,7 @@ class AMS_Locality(Point):
             plt.quiver(self.pltx,self.plty,-np.sin(trend*np.pi/180.),-np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel)
    
     def sigma_1(self, quadrant='E'):
-        s1_dir=self.AMS_info.AMS_max+90.
+        s1_dir=self.AMS_info.k_max+90.
         a,b=np.cos(s1_dir*np.pi/180.), np.sin(s1_dir*np.pi/180.)
         if quadrant=='N':
             if a<0: s1_dir=s1_dir-180.
@@ -805,10 +806,10 @@ class AMS_Locality(Point):
         result=rotkit_f.rotatepts(np.column_stack(([self.LocPars.PointLat,ref_lat],[self.LocPars.PointLong,ref_long])),
                 np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
         #by calculating the bearing to the rotated reference point can rotate the eigenvector dec               
-        rotated=AMS_Locality(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,rotation.EndAge,
+        rotated=AMS_Locality(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.Age_err,rotation.EndAge,
                                     result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0],
                                     sphere_bearing(result[:,0][0],result[:,1][0],result[:,0][1],result[:,1][1]),self.AMS_info.k_max_err],
-                                index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing','AMS_max','max_err']),
+                                index=['Name','PlateCode','FeatureAge','Age_err','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing','AMS_max','max_err']),
                                 self.PlotColor,self.PlotLevel,self.PlotSymbolSize)
         rotated.ReferencePlate=rotation.FixedPlate
         return rotated
