@@ -105,8 +105,47 @@ def sphere_point_along_bearing(lat1,long1,bearing,d):
    long2=long1+np.arctan2(np.sin(bearing)*np.sin(d)*np.cos(lat1),np.cos(d)-np.sin(lat1)*np.sin(lat2))
    return lat2/degrad,long2/degrad
                                                                                         
-                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                        
+def dir2cart(d):
+    """
+    converts list or array of vector directions, in degrees, to array of cartesian coordinates, in x,y,z
+    From PMagPy (Lisa Tauxe)
+    """
+    ints=np.ones(len(d)).transpose() # get an array of ones to plug into dec,inc pairs
+    d=np.array(d)
+    rad=np.pi/180.
+    if len(d.shape)>1: # array of vectors
+        decs,incs=d[:,0]*rad,d[:,1]*rad
+        if d.shape[1]==3: ints=d[:,2] # take the given lengths
+    else: # single vector
+        decs,incs=np.array(d[0])*rad,np.array(d[1])*rad
+        if len(d)==3: 
+            ints=np.array(d[2])
+        else:
+            ints=np.array([1.])
+    cart=np.array([ints*np.cos(decs)*np.cos(incs),ints*np.sin(decs)*np.cos(incs),ints*np.sin(incs)]).transpose()
+    return cart
+
+def cart2dir(cart):
+    """
+    converts x,y,z values to D,I. From PMagPy (Lisa Tauxe)
+    """
+    cart=np.array(cart)
+    rad=np.pi/180. # constant to convert degrees to radians
+    if len(cart.shape)>1:
+        Xs,Ys,Zs=cart[:,0],cart[:,1],cart[:,2]
+    else: #single vector
+        Xs,Ys,Zs=cart[0],cart[1],cart[2]
+    Rs=np.sqrt(Xs**2+Ys**2+Zs**2) # calculate resultant vector length
+    Decs=(np.arctan2(Ys,Xs)/rad)%360. # calculate declination taking care of correct quadrants (arctan2) and making modulo 360.
+    try:
+        Incs=np.arcsin(Zs/Rs)/rad # calculate inclination (converting to degrees) # 
+    except:
+        print 'trouble in cart2dir' # most likely division by zero somewhere
+        return np.zeros(3)
+        
+    return np.array([Decs,Incs,Rs]).transpose() # return the directions list
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
 class EulerRotationModel(object):
     """
     Created from a rotation file: assumes presence of header with
@@ -527,7 +566,7 @@ class Point(object):
         PlotColor: assigned colour
         PlotLevel: plot level (defaults to 5)
     """    
-    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5):
+    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
         """Return object
         PointPars should be a Series/DataFrame row with name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
         optionally MaxError,MinError,MaxBearing, otherwise 0 by default
@@ -538,21 +577,23 @@ class Point(object):
         self.ReferencePlate=PointPars.PlateCode
         self.FeatureAge=PointPars.FeatureAge
         self.ReconstructionAge=PointPars.ReconstructionAge
+        self.PlotColor=PlotColor
+        self.PlotLevel=PlotLevel
+        self.PlotSymbolSize=PlotSymbolSize
         #if input does not contain rotation error parameters, creates empty columns 
         if not 'MaxError' in PointPars:
             self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,0.,0.,0.],index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
         else:
             self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,PointPars.MaxError,PointPars.MinError,PointPars.MaxBearing]
                                         ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
+
     
     def mapplot(self,m,ellipseflag=0):
         """
         plots point on preexisting Basemap. if ellipseflag set to 1, will plot the associated error ellipse
         """
         self.pltx,self.plty=m(self.LocPars.PointLong,self.LocPars.PointLat)
-        plt.plot(self.pltx,self.plty, 'o', color=self.PlotColor, zorder=self.PlotLevel)
+        plt.plot(self.pltx,self.plty, marker='o',ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel)
         if ellipseflag==1: m.ellipse(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing)
     
     def rotate(self,rotation):
@@ -764,12 +805,12 @@ class AMS_Locality(Point):
     """ A sampling site with associated AMS data 
     New Attributes:
     AMS_info: a pandas series that contains AMS ellipsoid information (currently just lineation orientation and error)
+    Age_err: Age Error associated with site
     """
-    def __init__(self, AMSpars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
+    def __init__(self, AMSpars,PlotColor='grey',PlotLevel=5):
         Point.__init__(self,AMSpars,PlotColor,PlotLevel)
         #need to add whole ellispoid info here eventually...
         self.AMS_info=pd.Series([AMSpars.AMS_max,AMSpars.max_err],index=['k_max','k_max_err'])
-        self.PlotSymbolSize=PlotSymbolSize
         self.Age_err=AMSpars.Age_err
         
     def mapplot(self,m,plottrend=0):
@@ -832,36 +873,43 @@ class AMS_Locality(Point):
             self.PlateCode=ActualPlate
         return result
 
-class PMag_Locality(object):
+class PMag_Locality(Point):
     """ A sampling site with associated AMS data 
-    Attributes:
-    name: string describing feature
-    PlateCode
-    LatLons: a pandas series that contains Latitude, Longitude and if specified error ellipse parameters MaxError,MinError,MaxBearing
-    Age_info: a pandas series that contains FeatureAge, FeatureAgeError
-    PMag_info: a pandas series that contains ChRM information (
-    PlotColor: assigned colour
-    PlotLevel: plot level (defaults to 5)
+    New Attributes (in addition to those inherited from Point):
+    Age_err: Age error associated with locality
+    DI_info: a pandas series that contains remanence vector information (GeoD,GeoI,TiltD,TiltI,k,alpha95)
+    Tilt_info: a pandas series that contains structural information (DipAzimuth,Dip and optionally FoldMinAge,FoldMaxAge)
+    (Use of Azimuth/Dip rather than strike/dip because that is input to dotilt(), and don't need to worry about different conventions.
     """
-    def __init__(self, AMS_data,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
+    def __init__(self, PMag_data,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
         """Return object
         
         """ 
-        self.Name=AMS_data.Name
-        self.PlateCode=AMS_data.Blockcode
-        if not 'MaxError' in AMS_data:
-            AMS_data.MaxError=0.
-            AMS_data.MinError=0.
-            AMS_data.MaxBearing=0.
-        self.LatLons=pd.Series([AMS_data.Lat,AMS_data.Long,AMS_data.MaxError,AMS_data.MinError,AMS_data.MaxBearing]
-                                ,index=['Lat','Lon','MaxError','MinError','MaxBearing'])
-        if not 'ReconstructionAge' in AMS_data:
-            AMS_data.ReconstructionAge=0.
-        self.Age_info=pd.Series([AMS_data.Age,AMS_data.Age_err,AMS_data.ReconstructionAge],index=['FeatureAge','Age_err','ReconstructionAge'])
-        self.AMS_info=pd.Series([AMS_data.AMS_max,AMS_data.max_err],index=['AMS_max','AMS_max_err'])
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
-        self.PlotSymbolSize=PlotSymbolSize   
+        Point.__init__(self,PMag_data,PlotColor,PlotLevel)
+        self.Age_err=PMag_data.Age_err
+        self.DI_info=pd.Series([PMag_data.GeoD,PMag_data.GeoI,PMag_data.TiltD,PMag_data.TiltI,PMag_data.k,PMag_data.alpha95],
+                                index=['GeoD','GeoI','TiltD','TiltI','k','alpha95'])
+        self.Tilt_info=pd.Series([PMag_data.DipAzimuth,PMag_data.Dip,PMag_data.FoldMaxAge,PMag_data.FoldMinAge],
+                                    index=['DipAzimuth','Dip','FoldMaxAge','FoldMinAge'])  
+
+    def untilt(self,untilting=1):
+        """
+        performs a partial tilt correction according to untilting (0=geographic, 1=stratigraphic)
+        adapted from the dotilt routine in PMagPy (Lisa Tauxe) 
+        """
+        rad=np.pi/180. # converts from degrees to radians
+        X=dir2cart([self.DI_info.GeoD,self.DI_info.GeoI,1.]) # get cartesian coordinates of dec,inc
+    # get some sines and cosines of new coordinate system
+        partial_dip=self.Tilt_info.Dip*untilting
+        sa,ca= -np.sin(self.Tilt_info.DipAzimuth*rad),np.cos(self.Tilt_info.DipAzimuth*rad)
+        cdp,sdp= np.cos(partial_dip*rad),np.sin(partial_dip*rad)
+    # do the rotation
+        xc=X[0]*(sa*sa+ca*ca*cdp)+X[1]*(ca*sa*(1.-cdp))+X[2]*sdp*ca
+        yc=X[0]*ca*sa*(1.-cdp)+X[1]*(ca*ca+sa*sa*cdp)-X[2]*sa*sdp
+        zc=X[0]*ca*sdp-X[1]*sdp*sa-X[2]*cdp
+    # convert back to direction:
+        Dir=cart2dir([xc,yc,-zc])
+        return pd.Series([untilting,Dir[0],Dir[1]],index=['Untilting','Dec','Inc'])
 
 #class Flowline(object):
 #    """
