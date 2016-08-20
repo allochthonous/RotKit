@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-import copy
-import os
+import copy,os
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 import matplotlib.pyplot as plt
@@ -145,6 +144,19 @@ def cart2dir(cart):
         
     return np.array([Decs,Incs,Rs]).transpose() # return the directions list
 
+def angle(D1,D2):
+    """
+    call to angle(D1,D2) returns array of angles between lists of two directions D1,D2 where D1 is for example, [[Dec1,Inc1],[Dec2,Inc2],etc.]
+    From PMagPy (Lisa Tauxe)
+    """
+    X1=dir2cart(np.array(D1)) # convert to cartesian from polar
+    X2=dir2cart(np.array(D2))
+    angles=[] # set up a list for angles
+    for k in range(X1.shape[0]): # single vector
+        angle= np.arccos(np.dot(X1[k],X2[k]))*180./np.pi # take the dot product
+        angle=angle%360.
+        angles.append(angle)
+    return np.array(angles)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 class EulerRotationModel(object):
     """
@@ -267,8 +279,8 @@ class EulerRotationModel(object):
         #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
         NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
         VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations[1:]] #zero rotation: more trouble than it's worth?   
-        return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong] for point,age in zip(VGPs,ages)],
-                                columns=['Age','Lat','Lon']) 
+        return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong,point.LocPars.MaxError,point.LocPars.MinError,point.LocPars.MaxBearing] for point,age in zip(VGPs,ages)],
+                                columns=['Age','Lat','Lon','MaxError','MinError','MaxBearing']) 
            
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
@@ -807,8 +819,8 @@ class AMS_Locality(Point):
     AMS_info: a pandas series that contains AMS ellipsoid information (currently just lineation orientation and error)
     Age_err: Age Error associated with site
     """
-    def __init__(self, AMSpars,PlotColor='grey',PlotLevel=5):
-        Point.__init__(self,AMSpars,PlotColor,PlotLevel)
+    def __init__(self, AMSpars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
+        Point.__init__(self,AMSpars,PlotColor,PlotLevel,PlotSymbolSize)
         #need to add whole ellispoid info here eventually...
         self.AMS_info=pd.Series([AMSpars.AMS_max,AMSpars.max_err],index=['k_max','k_max_err'])
         self.Age_err=AMSpars.Age_err
@@ -885,12 +897,39 @@ class PMag_Locality(Point):
         """Return object
         
         """ 
-        Point.__init__(self,PMag_data,PlotColor,PlotLevel)
+        Point.__init__(self,PMag_data,PlotColor,PlotLevel,PlotSymbolSize)
         self.Age_err=PMag_data.Age_err
         self.DI_info=pd.Series([PMag_data.GeoD,PMag_data.GeoI,PMag_data.TiltD,PMag_data.TiltI,PMag_data.k,PMag_data.alpha95],
                                 index=['GeoD','GeoI','TiltD','TiltI','k','alpha95'])
         self.Tilt_info=pd.Series([PMag_data.DipAzimuth,PMag_data.Dip,PMag_data.FoldMaxAge,PMag_data.FoldMinAge],
-                                    index=['DipAzimuth','Dip','FoldMaxAge','FoldMinAge'])  
+                                    index=['DipAzimuth','Dip','FoldMaxAge','FoldMinAge']) 
+                                    
+    def vgp(self, tiltcorr=1.):
+        """
+        Calculates VGP for locality. By default assumes that the tilt-corrected remanence is the
+        correct one.
+        """
+        if tiltcorr==1:
+            dec=self.DI_info.TiltD*np.pi/180
+            inc=self.DI_info.TiltI*np.pi/180
+        elif tiltcorr==0:
+            dec=self.DI_info.GeoD*np.pi/180
+            inc=self.DI_info.GeoI*np.pi/180           
+        else: 
+            direction=self.untilt(tiltcorr)
+            dec=direction.Dec*np.pi/180
+            inc=direction.Inc*np.pi/180
+        colat=np.arctan2(inc,2)    
+        vgplat=np.arcsin((np.sin(self.LocPars.PointLat*np.pi/180)*np.cos(colat))+(np.cos(self.LocPars.PointLat*np.pi/180)*np.sin(colat)*np.cos(dec)))
+        beta=np.arcsin((np.sin(colat)*np.sin(dec))/np.cos(vgplat))
+        if np.cos(colat)>=np.sin(self.LocPars.PointLat)*np.sin(vgplat):
+            vgplong=self.LocPars.PointLong*np.pi/180+beta
+        else:
+            vgplong=self.LocPars.PointLong*np.pi/180+np.pi-beta
+        dp=self.DI_info.alpha95*np.pi/180*((1+3*np.cos(colat)**2)/2)
+        dm=self.DI_info.alpha95*np.pi/180*(np.sin(colat)/np.cos(inc))    
+        #eventually am going to want to create a VGP object for this
+        return pd.Series([vgplat*180/np.pi,vgplong*180/np.pi,dp*180/np.pi,dm*180/np.pi],index=['PoleLat','PoleLong','dp','dm'])
 
     def untilt(self,untilting=1):
         """
@@ -910,6 +949,44 @@ class PMag_Locality(Point):
     # convert back to direction:
         Dir=cart2dir([xc,yc,-zc])
         return pd.Series([untilting,Dir[0],Dir[1]],index=['Untilting','Dec','Inc'])
+
+    def untilt_history(self):
+        """
+        returns the D,I at 1 Ma steps between formation age and present, with higher resolution steps during the
+        interval defined by FoldMinAge and FoldMaxAge
+        """
+        #Assumes the folding is linear over the specified folding interval, which assumes that the folding age is well
+        # defined. Will be a problem if not, so will need more options.
+        # Probably also at some stage want to make it able to return single age or specific age range..? 
+        tiltages=np.concatenate(((np.arange(0,self.Tilt_info.FoldMinAge)),
+                            np.arange(self.Tilt_info.FoldMinAge,self.Tilt_info.FoldMaxAge,0.1),
+                            np.arange(self.Tilt_info.FoldMaxAge,self.FeatureAge+self.Age_err),
+                            np.array([self.FeatureAge+self.Age_err])))
+        #set untilting to a linear function of position within folding interval
+        tiltcorr=(tiltages-self.Tilt_info.FoldMinAge)/(self.Tilt_info.FoldMaxAge-self.Tilt_info.FoldMinAge)
+        #set untilting to 0 for age points less than Fold Minimum Age
+        tiltcorr[[i for i, age in enumerate(tiltages) if age <= self.Tilt_info.FoldMinAge]]=0.
+        #set untilting to 1 for age points greater than Fold Maximum Age
+        tiltcorr[[i for i, age in enumerate(tiltages) if age>=self.Tilt_info.FoldMaxAge]]=1
+        tiltDI=[]
+        for age, untilt in zip (tiltages,tiltcorr):
+            if untilt==0: tiltDI.append ([age,untilt,self.DI_info.GeoD,self.DI_info.GeoI])
+            elif untilt==1: tiltDI.append ([age,untilt,self.DI_info.TiltD,self.DI_info.TiltI])
+            else: 
+                corrected=self.untilt(untilt)
+                tiltDI.append ([age,untilt,corrected.Dec,corrected.Inc])
+        return pd.DataFrame(tiltDI, columns=['Age','Untilting','Dec','Inc'])
+        
+    def compare_to_predicted(self,rotmodel,abs_ref_frame=3):
+        """
+        between the maximum locality age and the present, compare the D,I values predicted from the specified rotation model to
+        the geographic, synfolding and tilt-corrected D,I (depending on age)
+        """
+        actual_DI=self.untilt_history()
+        predicted_DI=self.predict_DI(actual_DI.Age.values.tolist(),rotmodel,abs_ref_frame)
+        return pd.DataFrame(np.column_stack((actual_DI.Age,actual_DI.Dec,actual_DI.Inc,predicted_DI.PredDec,predicted_DI.PredInc,
+                                    angle([[row.Dec,row.Inc] for i,row in actual_DI.iterrows()],[[row.PredDec,row.PredInc] for i,row in predicted_DI.iterrows()]))),
+                                        columns=['Age','Dec','Inc','PredDec','PredInc','Seperation_Angle'])
 
 #class Flowline(object):
 #    """
