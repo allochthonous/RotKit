@@ -1019,7 +1019,7 @@ class Flowline(object):
                                 # also assumes that data sorted in age ascending order
         self.PlotLevel=PlotLevel
                     
-    def mapplot(self,m,colourmap='plasma_r',plotbar='Y'):
+    def mapplot(self,colourmap='plasma_r',plotbar='Y'):
         ax=plt.gca()
         age_cmap=plt.get_cmap(colourmap)
         maxage=np.round(max(self.FlowData.Age),-1)
