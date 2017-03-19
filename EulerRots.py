@@ -613,7 +613,7 @@ class Point(object):
                 transform=ccrs.Geodetic())
         ax=plt.gca()
         if ellipseflag==1: 
-            ax.add_patch(ellipse(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
+            ax.add_patch(ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
                         facecolor='none', edgecolor=self.PlotColor, zorder=self.PlotLevel-1))
 
     def rotate(self,rotation):
@@ -1018,28 +1018,29 @@ class Flowline(object):
         self.FlowData=LineData    # columns should be PointLat,PointLong,Age,MaxError,MinError,MaxBearing
                                 # also assumes that data sorted in age ascending order
         self.PlotLevel=PlotLevel
-        
+                    
     def mapplot(self,m,colourmap='plasma_r',plotbar='Y'):
+        ax=plt.gca()
         age_cmap=plt.get_cmap(colourmap)
         maxage=np.round(max(self.FlowData.Age),-1)
         minage=np.round(min(self.FlowData.Age),-1)
         cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
         scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
-        for i,thing in self.FlowData[::-1].iterrows():
-            PointColour = scalarMap.to_rgba(thing.Age)
-            x,y= m(thing.Lon,thing.Lat)
-            if i<len(self.FlowData)-1:
-                #draw connecting line segment with intermediate colour
-                LineSegColour=scalarMap.to_rgba(thing.Age+((thing.Age-lastAge)/2))
-                x,y=m([x0,thing.Lon],[y0,thing.Lat])
-                m.plot(x,y,color=LineSegColour,zorder=3, linewidth=3)
-                m.scatter(x,y,15,color=PointColour,zorder=5)
-            m.ellipse(thing.Lon,thing.Lat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
-                            ec=PointColour,fc='None',linewidth=2,zorder=self.Plot)
-            m.ellipse(thing.PointLon,thing.Lat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
-                            fc=PointColour,alpha=0.15,linewidth=0,zorder=1)
-            x0,y0=thing.PointLong,thing.PointLat
-            lastAge=thing.Age
+        for i,thing in self.FlowData.iterrows():
+            plt.plot(thing.Lon, thing.Lat, 'o', 
+                    color=scalarMap.to_rgba(thing.Age),
+                    transform=ccrs.Geodetic(),
+                    zorder=self.PlotLevel)
+            ax.add_patch(ellipse_pars(thing.Lon, thing.Lat, thing.MaxError, thing.MinError, thing.MaxBearing,
+                                facecolor='none', edgecolor=scalarMap.to_rgba(thing.Age), linewidth=2, zorder=self.PlotLevel-2))
+            if i>0:
+                plt.plot([x0,thing.Lon], [y0,thing.Lat],
+                        linewidth=2,
+                        color=scalarMap.to_rgba(thing.Age+((thing.Age-age0)/2)),
+                        transform=ccrs.Geodetic(),
+                        zorder=self.PlotLevel-1)
+            x0,y0,age0=thing.Lon,thing.Lat,thing.Age   
+            
         #add colorbar for age
         if plotbar=='Y':   
             ax1 = plt.gca()
