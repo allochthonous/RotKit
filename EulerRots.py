@@ -11,6 +11,7 @@ import matplotlib.cm as cmx
 from mpl_toolkits.basemap import Basemap, shiftgrid
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import RotKit_f as rotkit_f
+import cartopy.crs as ccrs
 
 #adds a new ellipse function to Basemap class
 def ellipse(self, lon, lat, a, b, az, **kwargs):
@@ -28,6 +29,20 @@ def ellipse(self, lon, lat, a, b, az, **kwargs):
     return poly
 
 Basemap.ellipse = ellipse
+
+def ellipse_pars(lon, lat, a, b, az, **kwargs):
+    """
+    given a specified error ellipse will generate a polygon patch 
+    that can then be added to a map: currently set up for use with Cartopy.
+    """
+    degrad=np.pi/180.
+    ellipse_angles=np.arange(0,360,0.5)*degrad
+    a,b=a*np.pi/180.,b*np.pi/180.
+    ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
+    ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
+    poly = Polygon(zip(ellipse_coords[1],ellipse_coords[0]), transform=ccrs.PlateCarree(),**kwargs)
+    return poly
+
 
 #Imports a table for looking up plate codes - potentially useful when building new rotations?
 platecodes=pd.read_table(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
@@ -588,14 +603,19 @@ class Point(object):
                                         ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
 
     
-    def mapplot(self,m,ellipseflag=0):
+    def mapplot(self,ellipseflag=0):
         """
-        plots point on preexisting Basemap. if ellipseflag set to 1, will plot the associated error ellipse
+        plots point on preexisting axes (currently set up for Cartopy Geoaxes) 
+        If ellipseflag set to 1, will plot the associated error ellipse
         """
-        self.pltx,self.plty=m(self.LocPars.PointLong,self.LocPars.PointLat)
-        plt.plot(self.pltx,self.plty, marker='o',ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel)
-        if ellipseflag==1: m.ellipse(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing)
-    
+        plt.plot(self.LocPars.PointLong,self.LocPars.PointLat, marker='o',
+                ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel,
+                transform=ccrs.Geodetic())
+        ax=plt.gca()
+        if ellipseflag==1: 
+            ax.add_patch(ellipse(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
+                        facecolor='none', edgecolor=self.PlotColor, zorder=self.PlotLevel-1))
+
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
         """ 
@@ -712,9 +732,9 @@ class PointSet(object):
         self.FeatureAge=PointList.iloc[0].FeatureAge
         self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
 
-    def mapplot(self,m,ellipseflag=0):
+    def mapplot(self,ellipseflag=0):
         for point in self.points:
-            point.mapplot(m,ellipseflag)
+            point.mapplot(ellipseflag)
     
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
@@ -768,9 +788,10 @@ class Boundary(PointSet):
         self.PlotLevel=PlotLevel
 
         
-    def mapplot(self,m,thickness=2):          
-        self.pltx,self.plty=m(self.summary().Lon.values,self.summary().Lat.values)
-        plt.plot(self.pltx,self.plty, linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel)
+    def mapplot(self,thickness=2):          
+        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
+                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
+                transform=ccrs.Geodetic())
 
 class Platelet(PointSet):
     """ closed Polygon that can be acted on by rotations but no defined subsegments as PlatePolygon
@@ -795,11 +816,12 @@ class Platelet(PointSet):
 
     def mapplot(self,m,thickness=2,transparency=0.5):
         """plot polygon on specified basemap"""
-        self.pltx,self.plty=m(self.summary().Lon.values,self.summary().Lat.values)
+        self.pltx,self.plty=self.summary().Lon.values,self.summary().Lat.values
         self.polygon=Polygon(zip(self.pltx,self.plty),
-                             facecolor=self.PlotColor, alpha=transparency, zorder=self.PlotLevel)
+                             facecolor=self.PlotColor, alpha=transparency, zorder=self.PlotLevel,
+                             transform=ccrs.Geodetic())
         plt.gca().add_patch(self.polygon)
-        plt.plot(self.pltx,self.plty, color=self.PlotColor, linewidth=thickness,zorder=self.PlotLevel)
+        plt.plot(self.pltx,self.plty, color=self.PlotColor, linewidth=thickness,zorder=self.PlotLevel,transform=ccrs.Geodetic())
         
 class AMS_Locality(Point):
     """ A sampling site with associated AMS data 
@@ -817,12 +839,12 @@ class AMS_Locality(Point):
         """
         plottrend=1 will add the trend of the sigma1 direction to the symbol.
         """
-        self.pltx,self.plty=m(self.LatLons.Lon,self.LatLons.Lat)
-        plt.plot(self.pltx,self.plty, marker='o',ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel)
+        self.pltx,self.plty=self.LatLons.Lon,self.LatLons.Lat
+        plt.plot(self.pltx,self.plty, marker='o',ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel,transform=ccrs.Geodetic())
         if plottrend==1:
             trend=self.sigma_1()
-            plt.quiver(self.pltx,self.plty,np.sin(trend*np.pi/180.),np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel)
-            plt.quiver(self.pltx,self.plty,-np.sin(trend*np.pi/180.),-np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel)
+            plt.quiver(self.pltx,self.plty,np.sin(trend*np.pi/180.),np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel,transform=ccrs.Geodetic())
+            plt.quiver(self.pltx,self.plty,-np.sin(trend*np.pi/180.),-np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel,transform=ccrs.Geodetic())
    
     def sigma_1(self, quadrant='E'):
         s1_dir=self.AMS_info.k_max+90.
@@ -1005,16 +1027,16 @@ class Flowline(object):
         scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
         for i,thing in self.FlowData[::-1].iterrows():
             PointColour = scalarMap.to_rgba(thing.Age)
-            x,y= m(thing.PointLong,thing.PointLat)
+            x,y= m(thing.Lon,thing.Lat)
             if i<len(self.FlowData)-1:
                 #draw connecting line segment with intermediate colour
                 LineSegColour=scalarMap.to_rgba(thing.Age+((thing.Age-lastAge)/2))
-                x,y=m([x0,thing.PointLong],[y0,thing.PointLat])
+                x,y=m([x0,thing.Lon],[y0,thing.Lat])
                 m.plot(x,y,color=LineSegColour,zorder=3, linewidth=3)
                 m.scatter(x,y,15,color=PointColour,zorder=5)
-            m.ellipse(thing.PointLong,thing.PointLat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
+            m.ellipse(thing.Lon,thing.Lat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
                             ec=PointColour,fc='None',linewidth=2,zorder=self.Plot)
-            m.ellipse(thing.PointLong,thing.PointLat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
+            m.ellipse(thing.PointLon,thing.Lat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
                             fc=PointColour,alpha=0.15,linewidth=0,zorder=1)
             x0,y0=thing.PointLong,thing.PointLat
             lastAge=thing.Age
