@@ -68,8 +68,10 @@ def get_R(dir):
     return R
 
 def get_fish(dir):
-    #generate fisher distributed points according to the supplied parameters
-    #(includes D,I,N,k) in a pandas object.
+    """
+    generate fisher distributed points according to the supplied parameters
+    (includes dec,inc,n,k) in a pandas object.
+    """
     tempD,tempI=[],[]
     for k in range(int(dir.n)):
         dec,inc=pmag.fshdev(dir.k)
@@ -238,8 +240,9 @@ def plot_APWP(APWPlats,APWPlongs,A95,colour='blue',meridian=-100):
     plt_line(longs,lats,m,colour)
     plt_points(longs,lats,m,colour)
     for i in range(len(errors)):
-        ell_x,ell_y=make_ellipse(lats[i],longs[i], errors[i])
-	plt_line(ell_x,ell_y,m,colour)
+        m.ellipse(longs[i],lats[i],errors[i],errors[i],0.)
+        #ell_x,ell_y=make_ellipse(lats[i],longs[i], errors[i])
+	#plt_line(ell_x,ell_y,m,colour)
     return m
 
   

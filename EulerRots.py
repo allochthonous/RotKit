@@ -14,11 +14,12 @@ import RotKit_f as rotkit_f
 
 #adds a new ellipse function to Basemap class
 def ellipse(self, lon, lat, a, b, az, **kwargs):
+    degrad=np.pi/180.
     ax = self._check_ax()
     ellipse_angles=np.arange(0,360,0.5)*degrad
     a,b=a*np.pi/180.,b*np.pi/180.
     ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
-    ellipse_coords=rotkit.sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
+    ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
     x, y = self(ellipse_coords[1],ellipse_coords[0])
     poly = Polygon(zip(x,y), **kwargs)
     ax.add_patch(poly)
@@ -260,7 +261,7 @@ class EulerRotationModel(object):
             rots_got=rots_got.interpolate(ages)
         return rots_got
         
-    def synthetic_APWP(self,ages,moving_plate,absolute_ref_frame):
+    def synthetic_APWP(self,moving_plate,absolute_ref_frame,ages):
         if ages[0]==0.: ages[0]=0.01 #Gets a bit fussy for the 0 rotation.
         reconstruction_rots=self.get_rots(moving_plate,absolute_ref_frame,ages)
         #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
@@ -672,7 +673,7 @@ class Point(object):
         at this site - a range of ages can be used because of the possibility of remagnetisation.
         absolute_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
         """
-        VGPs=rotmodel.synthetic_APWP(ages,self.PlateCode,abs_ref_frame)
+        VGPs=rotmodel.synthetic_APWP(self.PlateCode,abs_ref_frame,ages)
         reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
         rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
         paleoI=[np.arctan(2*np.tan(point.LocPars.PointLat*np.pi/180))*180/np.pi for point in rotated]
@@ -975,57 +976,57 @@ class PMag_Locality(Point):
                                     angle([[row.Dec,row.Inc] for i,row in actual_DI.iterrows()],[[row.PredDec,row.PredInc] for i,row in predicted_DI.iterrows()]))),
                                         columns=['Age','Dec','Inc','PredDec','PredInc','Seperation_Angle'])
 
-#class Flowline(object):
-#    """
-#    A set of points tracking a feature over a range of reconstruction ages
-#    Attributes:      
-#    name: string describing feature
-#    PlateCode: tectonic plate code for point being modelled
-#    FixedPlate: code for tectonic plate that point has been rotated relative to to generate flowline  
-#    FlowData: pandas DataFrame with Lat and Long points + age and error ellipse parameters for flowline 
-#    PlotLevel: plot level (defaults to 5)
-#    
-#    Methods:
-#    plot
-#    """
-#    def __init__(self,name,MovingPlate,FixedPlate,LineData,PlotLevel=5):
-#        self.name = name
-#        self.PlateCode=MovingPlate
-#        self.FixedPlate=FixedPlate
-#        self.FlowData=LineData    # columns should be PointLat,PointLong,Age,ErrEllipseMax,ErrEllipseMin,ErrEllipseMaxBearing
-#                                # also assumes that data sorted in age ascending order
-#        self.PlotLevel=PlotLevel
-#        
-#    def mapplot(self,m,colourmap='plasma_r',plotbar='Y'):
-#        age_cmap=plt.get_cmap(colourmap)
-#        maxage=np.round(max(self.FlowData.Age),-1)
-#        minage=np.round(min(self.FlowData.Age),-1)
-#        cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
-#        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
-#        for i,thing in self.FlowData[::-1].iterrows():
-#            PointColour = scalarMap.to_rgba(thing.Age)
-#            x,y= m(thing.PointLong,thing.PointLat)
-#            if i<len(self.FlowData)-1:
-#                #draw connecting line segment with intermediate colour
-#                LineSegColour=scalarMap.to_rgba(thing.Age+((thing.Age-lastAge)/2))
-#                x,y=m([x0,thing.PointLong],[y0,thing.PointLat])
-#                m.plot(x,y,color=LineSegColour,zorder=3, linewidth=3)
-#                m.scatter(x,y,15,color=PointColour,zorder=5)
-#            m.ellipse(thing.PointLong,thing.PointLat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
-#                            ec=PointColour,fc='None',linewidth=2,zorder=4)
-#            m.ellipse(thing.PointLong,thing.PointLat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
-#                            fc=PointColour,alpha=0.15,linewidth=0,zorder=1)
-#            x0,y0=thing.PointLong,thing.PointLat
-#            lastAge=thing.Age
-#        #add colorbar for age
-#        if plotbar=='Y':   
-#            ax1 = plt.gca()
-#            #sneaky way to extend axes with right dimensions
-#            divider=make_axes_locatable(ax1)
-#            ax2 = divider.append_axes("bottom", size="5%", pad=0.1)
-#            cb1=colorbar.ColorbarBase(ax2, cmap=age_cmap,norm=cNorm,orientation='horizontal')
-#            cb1.set_label('Age (Ma)')
-#
+class Flowline(object):
+    """
+    A set of points tracking a feature over a range of reconstruction ages
+    Attributes:      
+    name: string describing feature
+    PlateCode: tectonic plate code for point being modelled
+    FixedPlate: reference frame for point rotation
+    FlowData: pandas DataFrame with Lat and Long points + age and error ellipse parameters for flowline 
+    PlotLevel: plot level (defaults to 5)
+    
+    Methods:
+    plot
+    """
+    def __init__(self,name,MovingPlate,FixedPlate,LineData,PlotLevel=5):
+        self.name = name
+        self.PlateCode=MovingPlate
+        self.FixedPlate=FixedPlate
+        self.FlowData=LineData    # columns should be PointLat,PointLong,Age,MaxError,MinError,MaxBearing
+                                # also assumes that data sorted in age ascending order
+        self.PlotLevel=PlotLevel
+        
+    def mapplot(self,m,colourmap='plasma_r',plotbar='Y'):
+        age_cmap=plt.get_cmap(colourmap)
+        maxage=np.round(max(self.FlowData.Age),-1)
+        minage=np.round(min(self.FlowData.Age),-1)
+        cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
+        for i,thing in self.FlowData[::-1].iterrows():
+            PointColour = scalarMap.to_rgba(thing.Age)
+            x,y= m(thing.PointLong,thing.PointLat)
+            if i<len(self.FlowData)-1:
+                #draw connecting line segment with intermediate colour
+                LineSegColour=scalarMap.to_rgba(thing.Age+((thing.Age-lastAge)/2))
+                x,y=m([x0,thing.PointLong],[y0,thing.PointLat])
+                m.plot(x,y,color=LineSegColour,zorder=3, linewidth=3)
+                m.scatter(x,y,15,color=PointColour,zorder=5)
+            m.ellipse(thing.PointLong,thing.PointLat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
+                            ec=PointColour,fc='None',linewidth=2,zorder=self.Plot)
+            m.ellipse(thing.PointLong,thing.PointLat,thing.ErrEllipseMax,thing.ErrEllipseMin,thing.ErrEllipseMaxBearing,
+                            fc=PointColour,alpha=0.15,linewidth=0,zorder=1)
+            x0,y0=thing.PointLong,thing.PointLat
+            lastAge=thing.Age
+        #add colorbar for age
+        if plotbar=='Y':   
+            ax1 = plt.gca()
+            #sneaky way to extend axes with right dimensions
+            divider=make_axes_locatable(ax1)
+            ax2 = divider.append_axes("bottom", size="5%", pad=0.1)
+            cb1=colorbar.ColorbarBase(ax2, cmap=age_cmap,norm=cNorm,orientation='horizontal')
+            cb1.set_label('Age (Ma)')
+
 #
 #class ApparentPolarWanderPath(Flowline):
 #    """
