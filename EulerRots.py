@@ -282,8 +282,8 @@ class EulerRotationModel(object):
         #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
         NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
         VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations[1:]] #zero rotation: more trouble than it's worth?   
-        return pd.DataFrame([['VGP-'+`age`,age,0.,point.LocPars.PointLat,point.LocPars.PointLong,point.LocPars.MaxError,point.LocPars.MinError,point.LocPars.MaxBearing] for point,age in zip(VGPs,ages)],
-                                columns=['Name','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']) 
+        return pd.DataFrame([['VGP-'+`age`,moving_plate,age,0.,point.LocPars.PointLat,point.LocPars.PointLong,point.LocPars.MaxError,point.LocPars.MinError,point.LocPars.MaxBearing] for point,age in zip(VGPs,ages)],
+                                columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']) 
 
     def synthetic_APWP_flowline(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
         return APWP(self.synthetic_APWP(moving_plate,absolute_ref_frame,ages),absolute_ref_frame,SetName,PlotColor,PlotLevel=5)      
