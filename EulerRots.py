@@ -282,9 +282,13 @@ class EulerRotationModel(object):
         #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
         NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
         VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations[1:]] #zero rotation: more trouble than it's worth?   
-        return pd.DataFrame([[age,point.LocPars.PointLat,point.LocPars.PointLong,point.LocPars.MaxError,point.LocPars.MinError,point.LocPars.MaxBearing] for point,age in zip(VGPs,ages)],
-                                columns=['Age','Lat','Lon','MaxError','MinError','MaxBearing']) 
-           
+        return pd.DataFrame([['VGP-'+`age`,age,0.,point.LocPars.PointLat,point.LocPars.PointLong,point.LocPars.MaxError,point.LocPars.MinError,point.LocPars.MaxBearing] for point,age in zip(VGPs,ages)],
+                                columns=['Name','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']) 
+
+    def synthetic_APWP_flowline(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
+        return APWP(self.synthetic_APWP(moving_plate,absolute_ref_frame,ages),absolute_ref_frame,SetName,PlotColor,PlotLevel=5)      
+                      
+                                            
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
                             item.N,item.rotations[0].EndAge,item.rotations[-1].EndAge] for item in self.rotationsets],
@@ -603,18 +607,19 @@ class Point(object):
                                         ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
 
     
-    def mapplot(self,ellipseflag=0):
+    def mapplot(self,ellipseflag=0,pointcol=""):
         """
         plots point on preexisting axes (currently set up for Cartopy Geoaxes) 
         If ellipseflag set to 1, will plot the associated error ellipse
         """
+        if pointcol=="": pointcol=self.PlotColor
         plt.plot(self.LocPars.PointLong,self.LocPars.PointLat, marker='o',
-                ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel,
+                ms=self.PlotSymbolSize, color=pointcol, zorder=self.PlotLevel,
                 transform=ccrs.Geodetic())
         ax=plt.gca()
         if ellipseflag==1: 
             ax.add_patch(ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
-                        facecolor='none', edgecolor=self.PlotColor, zorder=self.PlotLevel-1))
+                        facecolor='none', edgecolor=pointcol, zorder=self.PlotLevel-1))
 
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
@@ -638,14 +643,13 @@ class Point(object):
         #another place where adding the zero rotation could trip you up.
         else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
         
-    def flowline(self,ages,refplate,rotmodel):
+    def flowline(self,ages,refplate,rotmodel,SetName='Flowline',PlotColor='grey',PlotLevel=5):
         """
         Finds coordinates of line that charts motion of point relative to the reference plate for the specified age points
         Current output: list of Point objects. Eventually will be a flowline object
         """
-        return [self.reconstruct(age,refplate,rotmodel) for age in ages]
+        return Flowline(pd.DataFrame([self.reconstruct(age,refplate,rotmodel).summary() for age in ages]),refplate,SetName,PlotColor,PlotLevel)
   
-    
     def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0):
         """
         calculates the magnitude and direction of the plate motion vector for this locality relative to the specified
@@ -822,7 +826,110 @@ class Platelet(PointSet):
                              transform=ccrs.Geodetic())
         plt.gca().add_patch(self.polygon)
         plt.plot(self.pltx,self.plty, color=self.PlotColor, linewidth=thickness,zorder=self.PlotLevel,transform=ccrs.Geodetic())
+
         
+class Flowline(PointSet):
+    """
+    A set of points tracking a feature over a range of reconstruction ages
+    Attributes:      
+    name: string describing feature
+    
+    MovingPlate: tectonic plate code for point being modelled
+    FixedPlate: reference frame for point rotation
+    PlotLevel: plot level (defaults to 5)
+    
+    Methods:
+    mapplot: 
+    mapplot_age:
+    summary:
+    """
+    def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+        self.PlotColor=PlotColor
+        self.PlotLevel=PlotLevel
+        self.MovingPlate=PointList.iloc[0].PlateCode
+        self.FixedPlate=RefPlate
+        
+    def mapplot(self,thickness=2):          
+        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
+                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
+                transform=ccrs.Geodetic())
+                            
+    def mapplot_age(self,colourmap='plasma_r',plotbar='N',ellipseflag=1):
+        age_cmap=plt.get_cmap(colourmap)
+        maxage=np.round(max(self.summary().ReconstructionAge),-1)
+        minage=np.round(min(self.summary().ReconstructionAge),-1)
+        cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
+        i=0
+        x0,y0,age0=0.,0.,0.
+        for point in self.points:
+            point.mapplot(ellipseflag,pointcol=scalarMap.to_rgba(point.ReconstructionAge))
+            if i>0:
+                plt.plot([x0,point.LocPars.PointLong], [y0,point.LocPars.PointLat],
+                        linewidth=2,
+                        color=scalarMap.to_rgba(point.ReconstructionAge+((point.ReconstructionAge-age0)/2)),
+                        transform=ccrs.Geodetic(),
+                        zorder=self.PlotLevel-1)
+            x0,y0,age0=point.LocPars.PointLong,point.LocPars.PointLat,point.ReconstructionAge
+            i=i+1 
+            
+        #add colorbar for age
+        if plotbar=='Y':   
+            ax1 = plt.gca()
+            #sneaky way to extend axes with right dimensions
+            divider=make_axes_locatable(ax1)
+            ax2 = divider.append_axes("bottom", size="5%", pad=0.1)
+            cb1=colorbar.ColorbarBase(ax2, cmap=age_cmap,norm=cNorm,orientation='horizontal')
+            cb1.set_label('Age (Ma)')                
+
+
+class APWP(PointSet):
+    """
+    A flowline specifically for APWPs, which unlike the more standard flowline are a reconstruction of time 0
+    of the position of the VGP at a particular age. Currently set up to 
+    Attributes:      
+    name: string describing feature
+    PlateCode: tectonic plate code for point being modelled
+    FixedPlate: reference frame for point rotation
+    PlotLevel: plot level (defaults to 5)
+    
+    Methods:
+    plot
+    """
+    def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+        self.PlotColor=PlotColor
+        self.PlotLevel=PlotLevel
+        self.MovingPlate=PointList.iloc[0].PlateCode
+        self.FixedPlate=RefPlate
+        
+    def mapplot(self,thickness=2):          
+        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
+                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
+                transform=ccrs.Geodetic())
+                            
+    def mapplot_age(self,colourmap='plasma_r',plotbar='N',ellipseflag=1):
+        age_cmap=plt.get_cmap(colourmap)
+        maxage=np.round(max(self.summary().FeatureAge),-1)
+        minage=np.round(min(self.summary().FeatureAge),-1)
+        cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
+        i=0
+        x0,y0,age0=0.,0.,0.
+        for point in self.points:
+            point.mapplot(ellipseflag,pointcol=scalarMap.to_rgba(point.FeatureAge))
+            if i>0:
+                plt.plot([x0,point.LocPars.PointLong], [y0,point.LocPars.PointLat],
+                        linewidth=2,
+                        color=scalarMap.to_rgba(point.FeatureAge+((point.FeatureAge-age0)/2)),
+                        transform=ccrs.Geodetic(),
+                        zorder=self.PlotLevel-1)
+            x0,y0,age0=point.LocPars.PointLong,point.LocPars.PointLat,point.FeatureAge
+            i=i+1                         
+                                                
+                                                            
+                                        
 class AMS_Locality(Point):
     """ A sampling site with associated AMS data 
     New Attributes:
@@ -998,73 +1105,7 @@ class PMag_Locality(Point):
                                     angle([[row.Dec,row.Inc] for i,row in actual_DI.iterrows()],[[row.PredDec,row.PredInc] for i,row in predicted_DI.iterrows()]))),
                                         columns=['Age','Dec','Inc','PredDec','PredInc','Seperation_Angle'])
 
-class Flowline(object):
-    """
-    A set of points tracking a feature over a range of reconstruction ages
-    Attributes:      
-    name: string describing feature
-    PlateCode: tectonic plate code for point being modelled
-    FixedPlate: reference frame for point rotation
-    FlowData: pandas DataFrame with Lat and Long points + age and error ellipse parameters for flowline 
-    PlotLevel: plot level (defaults to 5)
-    
-    Methods:
-    plot
-    """
-    def __init__(self,name,MovingPlate,FixedPlate,LineData,PlotLevel=5):
-        self.name = name
-        self.PlateCode=MovingPlate
-        self.FixedPlate=FixedPlate
-        self.FlowData=LineData    # columns should be PointLat,PointLong,Age,MaxError,MinError,MaxBearing
-                                # also assumes that data sorted in age ascending order
-        self.PlotLevel=PlotLevel
-                    
-    def mapplot(self,colourmap='plasma_r',plotbar='Y'):
-        ax=plt.gca()
-        age_cmap=plt.get_cmap(colourmap)
-        maxage=np.round(max(self.FlowData.Age),-1)
-        minage=np.round(min(self.FlowData.Age),-1)
-        cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
-        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
-        for i,thing in self.FlowData.iterrows():
-            plt.plot(thing.Lon, thing.Lat, 'o', 
-                    color=scalarMap.to_rgba(thing.Age),
-                    transform=ccrs.Geodetic(),
-                    zorder=self.PlotLevel)
-            ax.add_patch(ellipse_pars(thing.Lon, thing.Lat, thing.MaxError, thing.MinError, thing.MaxBearing,
-                                facecolor='none', edgecolor=scalarMap.to_rgba(thing.Age), linewidth=2, zorder=self.PlotLevel-2))
-            if i>0:
-                plt.plot([x0,thing.Lon], [y0,thing.Lat],
-                        linewidth=2,
-                        color=scalarMap.to_rgba(thing.Age+((thing.Age-age0)/2)),
-                        transform=ccrs.Geodetic(),
-                        zorder=self.PlotLevel-1)
-            x0,y0,age0=thing.Lon,thing.Lat,thing.Age   
-            
-        #add colorbar for age
-        if plotbar=='Y':   
-            ax1 = plt.gca()
-            #sneaky way to extend axes with right dimensions
-            divider=make_axes_locatable(ax1)
-            ax2 = divider.append_axes("bottom", size="5%", pad=0.1)
-            cb1=colorbar.ColorbarBase(ax2, cmap=age_cmap,norm=cNorm,orientation='horizontal')
-            cb1.set_label('Age (Ma)')
 
-#
-#class ApparentPolarWanderPath(Flowline):
-#    """
-#    A flowline for paleomagnetic poles - can feed in PoleLat,PoleLong,A95 (or dp/dm) and it will
-#    convert that to flowdata comaptible with the plot_ell routine. Dp/dm is potentially tricky because
-#    orientation of ellipse depends on the site location relative to the calculated pole - have the information, 
-#    just need to make sure it's in the right form
-#    """
-#    def __init__(self,name,MovingPlate,FixedPlate,PoleData,PlotLevel=5):
-#        super().__init__(name,MovingPlate,FixedPlate,PoleData,PlotLevel)
-#        #FlowData is not correctly configured from this - need to modify.
-#        #currently just deals with A95 data. Will have to modify with conditional to deal with dp/dpm
-#        self.FlowData=pd.DataFrame(np.column_stack((PoleData.PoleLat,PoleData.PoleLong,PoleData.Age,PoleData.A95,PoleData.A95,np.repeat(0,len(PoleData)))),
-#                                    columns=['PointLat','PointLong','Age','ErrEllipseMax','ErrEllipseMin','ErrEllipseMaxBearing'])
-#        #keep PoleData because it is useful
-#        self.PoleData=PoleData
-#
+
+
 
