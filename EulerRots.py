@@ -44,6 +44,20 @@ def ellipse_pars(lon, lat, a, b, az, **kwargs):
     return poly
 
 
+def get_chron_age(chron,timescale='CK95'):
+    agemodel=pd.read_table(os.path.join(__location__,'Datafiles/'+timescale+'.txt'))
+    if chron[-2]=='n':
+        select=agemodel[agemodel.Chron==chron[1:-1]].index[0]
+        if chron[-1]=='y': age=agemodel.iloc[select].Young_Age
+        elif chron[-1]=='o': age=agemodel.iloc[select].Old_Age
+        elif chron[-1]=='m': age=agemodel.iloc[select].Young_Age+0.5*(agemodel.iloc[select].Old_Age-agemodel.iloc[select].Young_Age)
+    else: #if reversed (unlisted) find the equivalent normal chron
+        select=agemodel[agemodel.Chron==chron[1:-2]+'n'].index[0]
+        if chron[-1]=='y': age=agemodel.iloc[select].Old_Age
+        elif chron[-1]=='o': age=agemodel.iloc[select+1].Young_Age
+        elif chron[-1]=='m': age=agemodel.iloc[select].Old_Age+0.5*(agemodel.iloc[select+1].Young_Age-agemodel.iloc[select].Old_Age)  
+    return age    
+    
 #Imports a table for looking up plate codes - potentially useful when building new rotations?
 platecodes=pd.read_table(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
@@ -287,8 +301,13 @@ class EulerRotationModel(object):
 
     def synthetic_APWP_flowline(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
         return APWP(self.synthetic_APWP(moving_plate,absolute_ref_frame,ages),absolute_ref_frame,SetName,PlotColor,PlotLevel=5)      
-                      
-                                            
+
+    def newagemodel(self, timescale='CK95'):
+        """
+        *should* overwrite old rotationsets with new ones with new age constraints.
+        """
+        self.rotationsets=([rotationset.newagemodel(timescale) for rotationset in self.rotationsets])                       
+                                                                                                                                                          
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
                             item.N,item.rotations[0].EndAge,item.rotations[-1].EndAge] for item in self.rotationsets],
@@ -312,6 +331,7 @@ class FiniteRotationSet(object):
             newrot=copy.deepcopy(rotations[0]) #creates new rather than referenced copy
             newrot.EndAge=0.
             newrot.StartAge=0.
+            newrot.EndChron='None'
             newrot.RotPars.RotAng=0.
             self.rotations.insert(0,newrot)
         self.N=len(rotations)
@@ -391,7 +411,10 @@ class FiniteRotationSet(object):
         added=[]
         for rot1,rot2 in zip(rotset1.rotations,rotset2.rotations):
             added.append(rot1.addrot(rot2))
-        return FiniteRotationSet(added,rotset1.MovingPlate,rotset2.FixedPlate)    
+        return FiniteRotationSet(added,rotset1.MovingPlate,rotset2.FixedPlate) 
+        
+    def newagemodel(self, timescale='CK95'):
+        return FiniteRotationSet([rotation.newagemodel(timescale) for rotation in self.rotations[1:]],self.FixedPlate,self.MovingPlate)  
    
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,item.FixedPlate,item.StartAge,item.EndAge,item.RotPars[0],item.RotPars[1],item.RotPars[2]] for item in self.rotations],
@@ -459,6 +482,7 @@ class EulerRotation(object):
         """ 
         self.MovingPlate = rotation.MovingPlate
         self.FixedPlate=rotation.FixedPlate
+        self.Timescale=getattr(rotation,'Timescale','Undefined') #potentially useful attribute to know...
         self.StartAge=getattr(rotation,'StartAge',0)
         self.EndAge=rotation.EndAge
         self.StartChron=getattr(rotation,'StartChron','None')
@@ -542,11 +566,11 @@ class EulerRotation(object):
         newKappa=1
         newDOF=10000
         
-        return EulerRotation(pd.Series([rot1.MovingPlate,rot2.FixedPlate,rot1.StartChron,rot2.EndChron,rot1.StartAge,rot2.EndAge,
+        return EulerRotation(pd.Series([rot1.MovingPlate,rot2.FixedPlate,self.Timescale,rot1.StartChron,rot2.EndChron,rot1.StartAge,rot2.EndAge,
                     newRotPars[0],newRotPars[1],newRotPars[2],
                     newKappa,new_covmat[0,0],new_covmat[0,1],new_covmat[0,2],new_covmat[1,1],new_covmat[1,2],new_covmat[2,2],
                     rot1.HellingerInfo.Points+rot2.HellingerInfo.Points,'NA','NA',newDOF,'Calculated'],
-                    index=['MovingPlate','FixedPlate','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
+                    index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
                     'RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))             
     
     def rotate(self,rotation):
@@ -556,19 +580,36 @@ class EulerRotation(object):
         """ 
         result=rotkit_f.rotatepts(np.array([[self.RotPars.RotLat,self.RotPars.RotLong]]),
                 np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
-        return EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,self.StartChron,self.EndChron,self.StartAge,self.EndAge,result[:,0][0],result[:,1][0],self.RotPars[2],
+        return EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,self.Timescale,self.StartChron,self.EndChron,self.StartAge,self.EndAge,result[:,0][0],result[:,1][0],self.RotPars[2],
                         self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
                         self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
-                            index=['MovingPlate','FixedPlate','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
+                            index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
                             'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))
     
     def details(self):
-        return pd.Series([self.MovingPlate,self.FixedPlate,self.StartChron,self.EndChron,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
+        return pd.Series([self.MovingPlate,self.FixedPlate,self.Timescale,self.StartChron,self.EndChron,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
                         self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
                         self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
-                            index=['MovingPlate','FixedPlate','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
+                            index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
                             'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])
+
+    def newagemodel(self, timescale='CK95'):
+        """
+        allows polarity timescale switching. Defaults to CK95
+        """
+        if self.EndChron != 'None': NewEndAge=get_chron_age(self.EndChron, timescale)
+        else: NewEndAge=self.EndAge
+        #hopefully this will work for stage rotations where StartChron is specified
+        if self.StartChron != 'None': NewStartAge=get_chron_age(self.StartChron, timescale)
+        else: NewStartAge=self.StartAge
         
+        return EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,timescale,self.StartChron,self.EndChron,NewStartAge,NewEndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
+                        self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
+                        self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
+                            index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
+                            'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))
+        
+                            
     def summary(self):
         return pd.Series([self.MovingPlate,self.FixedPlate,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2]],
                             index=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])   
