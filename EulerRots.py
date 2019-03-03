@@ -13,6 +13,9 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import RotKit_f as rotkit_f
 import cartopy.crs as ccrs
 
+#Imports a table for looking up plate codes - potentially useful when building new rotations?
+platecodes=pd.read_table(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
+
 #adds a new ellipse function to Basemap class
 def ellipse(self, lon, lat, a, b, az, **kwargs):
     degrad=np.pi/180.
@@ -43,8 +46,13 @@ def ellipse_pars(lon, lat, a, b, az, **kwargs):
     poly = Polygon(zip(ellipse_coords[1],ellipse_coords[0]), transform=ccrs.PlateCarree(),**kwargs)
     return poly
 
-
 def get_chron_age(chron,timescale='CK95'):
+	"""
+	Given a chron name as a string with appended 'y', 'm' or 'o', will attempt to look up 
+	and return the age of the end/young end, middle or beginning/old end of the designated
+	chron. Currently two timescales are available: 'CK95' (Cande & Kent 1995, default) and
+	'GTS12' (Geological Timescale with some astronomically tuned chron boundaries)
+	"""
     agemodel=pd.read_table(os.path.join(__location__,'Datafiles/'+timescale+'.txt'))
     if chron[-2]=='n':
         select=agemodel[agemodel.Chron==chron[1:-1]].index[0]
@@ -57,18 +65,27 @@ def get_chron_age(chron,timescale='CK95'):
         elif chron[-1]=='o': age=agemodel.iloc[select+1].Young_Age
         elif chron[-1]=='m': age=agemodel.iloc[select].Old_Age+0.5*(agemodel.iloc[select+1].Young_Age-agemodel.iloc[select].Old_Age)  
     return age    
-    
-#Imports a table for looking up plate codes - potentially useful when building new rotations?
-platecodes=pd.read_table(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
 def find_plate_from_name(text):
-    #given a string fragment (e.g., Pacific will return any matches from the plate description. Warning: can return multiple matches!
+    """
+    Returns (in the form of a pandas DataFrame) the numerical and text codes and descriptions
+    of plates with the input string fragment 'text' within their descriptions. 
+    Warning: can return multiple matches! (e.g., Pacific will return any matches with 'Pacific' 
+    in the plate description, which is not just the Pacific Plate). 
+    """
     return platecodes[platecodes.Description.str.contains(text)]
 
 def find_plate_from_number(code):
+	"""
+	Given a numerical plate code, will return a pandas DataFrame row with the 
+	matching plate code, text code, and description 
+	"""
     return platecodes.loc[code]
 
 def rotmat_to_pole(rot_matrix):
+	"""
+	Converts given a 3x3 rotation matrix rot_matrix into a Euler rotation (lat,long, angle)
+	"""
     pole_lon=np.arctan((rot_matrix[0,2]-rot_matrix[2,0])/(rot_matrix[2,1]-rot_matrix[1,2]))*180/np.pi
     if rot_matrix[2,1]-rot_matrix[1,2]<0. : pole_lon=pole_lon+180
     if pole_lon>180: pole_lon=pole_lon-360
@@ -80,14 +97,17 @@ def rotmat_to_pole(rot_matrix):
     if temp<0: pole_ang=pole_ang+180
     return [pole_lat,pole_lon,pole_ang]
 
-def sphere_ang_dist(lat1,long1,lat2,long2):
+def sphere_ang_dist(lat1,long1,lat2,long2,degrees=True):
     """
-    calculates the length and bearing of the great circle path between two points
-    using haversine formula     
+    calculates the length of the great circle path between points (lat1, long1) 
+    and (lat2, long2) using haversine formula. By default, assumes input coordinates 
+    are in degrees and returns distance in degrees. If degrees=False, then assumes input 
+    is in radians and returns distance in radians
+    
+    Source: http://www.movable-type.co.uk/scripts/latlong.html    
     """
-    degrad=np.pi/180
-    #calculate distance between two points on the Earth's surface - returns value in radians
-    #this and other spherical trig routines from http://www.movable-type.co.uk/scripts/latlong.html  
+    if degrees==True: degrad=np.pi/180.
+    else: degrad=1.
     dlong=(long2-long1)*degrad
     dlat=(lat2-lat1)*degrad
     lat1=lat1*degrad
@@ -96,26 +116,43 @@ def sphere_ang_dist(lat1,long1,lat2,long2):
     sepdist=2*(np.arctan2(np.sqrt(a),np.sqrt(1-a)))
     return sepdist/degrad
    
-def sphere_bearing(lat1,long1,lat2,long2):
+def sphere_bearing(lat1,long1,lat2,long2,degrees=True):
     """
-    bearing of point (lat2, long2) wrt point (lat1,long1)
+    returns bearing of point (lat2, long2) wrt point (lat1,long1). By default, assumes 
+    input coordinates are in degrees and returns distance in degrees. If degrees=False, 
+    then assumes input is in radians and returns distance in radians.
+    
+    Source: http://www.movable-type.co.uk/scripts/latlong.html
     """
-    degrad=np.pi/180
+    if degrees==True: degrad=np.pi/180.
+    else: degrad=1.
     dlong=(long2-long1)*degrad
     lat1=lat1*degrad
     lat2=lat2*degrad
     y = np.sin(dlong)*np.cos(lat2)
     x = np.cos(lat1)*np.sin(lat2)-np.sin(lat1)*np.cos(lat2)*np.cos(dlong)
-    bearing=(np.arctan2(y,x))/degrad
-    if (bearing<0): bearing=bearing+360
+    if degrees==True:
+    	bearing=(np.arctan2(y,x))/degrad
+    	if (bearing<0): bearing=bearing+360
     return bearing
+    
+def sphere_dist_bearing(lat1,long1,lat2,long2,degrees=True)
+	"""
+	returns a list containing angular distance and bearing of point (lat2, long2) wrt point
+	(lat1,long1). By default, assumes input coordinates are in degrees and returns distance 
+	in degrees. If degrees=False, then assumes input is in radians and returns distance in radians.
+	"""
+	return [sphere_ang_dist(lat1,long1,lat2,long2,degrees), sphere_bearing(lat1,long1,lat2,long2,degrees)]    
+    
 
-def sphere_point_along_bearing(lat1,long1,bearing,d):
+def sphere_point_along_bearing(lat1,long1,bearing,d,degrees=True):
    """
-   returns lat and long of points given intial lat/long, bearing and distance
-   (all in degrees)
+   returns lat and long of a point angular distance d at azimuth bearing from initial point
+   lat1,long1.  By default, assumes input coordinates are in degrees and returns distance 
+   in degrees. If degrees=False, then assumes input is in radians and returns distance in radians.
    """        
-   degrad=np.pi/180
+   if degrees==True: degrad=np.pi/180.
+   else: degrad=1.
    lat1,long1,bearing,d=lat1*degrad,long1*degrad,bearing*degrad,d*degrad
    lat2=np.arcsin(np.sin(lat1)*np.cos(d)+np.cos(lat1)*np.sin(d)*np.cos(bearing))
    long2=long1+np.arctan2(np.sin(bearing)*np.sin(d)*np.cos(lat1),np.cos(d)-np.sin(lat1)*np.sin(lat2))
@@ -123,8 +160,8 @@ def sphere_point_along_bearing(lat1,long1,bearing,d):
                                                                                         
 def dir2cart(d):
     """
-    converts list or array of vector directions, in degrees, to array of cartesian coordinates, in x,y,z
-    From PMagPy (Lisa Tauxe)
+    converts list or array of vector directions [D,I] to array of cartesian coordinates, in x,y,z
+    Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
     """
     ints=np.ones(len(d)).transpose() # get an array of ones to plug into dec,inc pairs
     d=np.array(d)
@@ -143,7 +180,8 @@ def dir2cart(d):
 
 def cart2dir(cart):
     """
-    converts x,y,z values to D,I. From PMagPy (Lisa Tauxe)
+    converts list of cartesian [x,y,z] values to spherical coordinates [D,I]. 
+    Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
     """
     cart=np.array(cart)
     rad=np.pi/180. # constant to convert degrees to radians
@@ -164,7 +202,7 @@ def cart2dir(cart):
 def angle(D1,D2):
     """
     call to angle(D1,D2) returns array of angles between lists of two directions D1,D2 where D1 is for example, [[Dec1,Inc1],[Dec2,Inc2],etc.]
-    From PMagPy (Lisa Tauxe)
+    Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
     """
     X1=dir2cart(np.array(D1)) # convert to cartesian from polar
     X2=dir2cart(np.array(D2))
@@ -174,6 +212,7 @@ def angle(D1,D2):
         angle=angle%360.
         angles.append(angle)
     return np.array(angles)
+
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 class EulerRotationModel(object):
     """
@@ -534,6 +573,15 @@ class EulerRotation(object):
             invrot.FixedPlate=self.MovingPlate
             invrot.MovingPlate=self.FixedPlate
         return invrot
+        
+    def half_rotation(self):
+        """
+        Return a copy of the rotation with the rotation angle halved
+        (Useful for ridge reconstructions, although be careful with sense of rotation)
+        """        
+        half_rot=EulerRotation(self.details())
+        half_rot.RotPars.RotAng=half_rot.RotPars.RotAng/2.
+        return half_rot
         
     def addrot(self,other_rot,sense='to'):
         #adds together this rotation to another one. 
