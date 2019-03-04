@@ -216,10 +216,15 @@ def angle(D1,D2):
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 class EulerRotationModel(object):
     """
-    Created from a rotation file: assumes presence of header with
-    'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
+    A class which organises the sets of rotations associated with particular plates, initially loaded from an input rotation file.
+    Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
+    where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+    
     Attributes:
-        rotationsets: list of rotationsets defined by unique combination of fixed and moving plates
+    
+    - rotationsets: list of FiniteRotationSets for a particular plate pair 
+    - FixedPlate (currently set to 'None' and not currently used for anything)
+    
     """      
     def __init__(self, rotfile):
         self.FixedPlate='None'
@@ -243,9 +248,9 @@ class EulerRotationModel(object):
         
     def insert_rots(self,newrots):
         """
-        for adding in newly calculated finite rotations
-        given a list of FiniteRotationSets, adds them to the rotation model
-        note: currently no consistency checking, so can add conflicting rotations 
+        given a list of FiniteRotationSets (either calculated or from another source), 
+        adds them to the rotation model. 
+        NB: currently no consistency checking, so can add conflicting rotations, which would be bad. 
         """
         #todo: check for conflicting rotations before adding in new ones.
         for rotationset in newrots:
@@ -253,8 +258,8 @@ class EulerRotationModel(object):
     
     def remove_rots(self,plate1,plate2=-1):
         """
-        remove sets of rotations with a particular plate code. If plate2 is specified,
-        will remove rotationsets with that plate pair. 
+        Remove FiniteRotationSets for the pair plate1, plate2. 
+        If plate2 is not defined, it will removed any FiniteRotationSet that involves plate1.
         """
         newrotset=[]
         for rotationset in self.rotationsets:
@@ -270,6 +275,10 @@ class EulerRotationModel(object):
         self.rotationsets=newrotset
 
     def find_pairs(self,plate):
+		"""
+		Searches for any FiniteRotationSets in which the specified plate is one of the plate pair;
+		returns the pairs of platecodes for those FiniteRotationSets (with plate always listed first). 
+		"""    
         circuits=[]
         pairs=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==plate)]
         for pair in pairs:
@@ -280,6 +289,12 @@ class EulerRotationModel(object):
         return circuits  
      
     def find_circuit(self,startplate,endplate,preferred=-1):
+    	"""
+    	Searches for ways to link startplate to endplate using rotations within the currently 
+    	defined rotation model. The returned circuit is a list of platecodes that starts with 
+    	startplate and ends with endplate. If multiple possible circuits exist, they will all be returned;
+    	can filter by setting a preferred platecode, although this may not always restrict the list to just one! 
+    	"""
         # should check to see if both startplate and endplate are included in the rotation model...
         circuits=self.find_pairs(startplate)
         plates_used=[startplate]+[pair[-1] for pair in circuits]
@@ -294,8 +309,16 @@ class EulerRotationModel(object):
         return found
             
     def get_rots(self,movingplate,fixedplate,ages=[],preferred=-1):
-        #what we need to do next is make it so that it will return a rotation set with particular age characteristics through interpolation
-        #so, theoretically, this should return a single rotationset, because it either exists in its stated or inverted form 
+    	"""
+    	Returns a FiniteRotationSet for the movingplate-fixedplate pair. If a list of ages is supplied,
+    	then the rotationset will consist of the interpolated finite rotations for those ages; otherwise it will be all
+    	available ages in the rotationset. If more than one circuit is possible, then the circuit can be forced through preferred.
+    	
+    	If multiple movingplate-fixedplate rotationsets already exist within the rotation model (hopefully unlikely), 
+    	or no viable plate circuit can be found, an empty list is returned. 
+    	If multiple viable plate circuits are found, it will use the first one in the list returned from find_circuit().
+    	"""
+        #Theoretically, this should return a single rotationset, because it either exists in its stated or inverted form 
         selected1=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==movingplate) & (rotationset.FixedPlate==fixedplate)]
         selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==fixedplate) & (rotationset.FixedPlate==movingplate)]
         #more than one rotationset for a defined plate pair: shouldn't happen in a properly set up rotation model/file...
@@ -306,7 +329,6 @@ class EulerRotationModel(object):
         elif selected1==[] and selected2==[]:
             found=self.find_circuit(movingplate,fixedplate,preferred)
             if found: 
-                rots_got=found
                 toadd=[]
                 #if a circuit exists, now add the circuit to get the new parameters
                 #note that if more than one circuit is found, currently the first one in the list is used.
@@ -316,8 +338,7 @@ class EulerRotationModel(object):
                     selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==plate2) & (rotationset.FixedPlate==plate1)]
                     if selected1: toadd.append(selected1[0])
                     else: toadd.append(selected2[0])
-                rots_got=toadd[0]
-                for rotset in toadd[1:]: rots_got=rotset.addrots(rots_got)
+                for rotset in toadd[1:]: rots_got=rotset.addrots(toadd[0])
             else: 
                 print 'Uh-oh: no rotations fit parameters'
                 rots_got=[]
@@ -330,6 +351,13 @@ class EulerRotationModel(object):
         return rots_got
         
     def synthetic_APWP(self,moving_plate,absolute_ref_frame,ages):
+    	"""
+    	Returns a pandas DataFrame that predicts the Apparent Polar Wander path that should have been generated 
+    	by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole
+    	in the moving_plate reference frame) for specified list of age points. Note that currently, there is no 
+    	restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame 
+    	(e.g, hotspot frames 001/Atlantic or 003/Pacific)
+    	"""
         if ages[0]==0.: ages[0]=0.01 #Gets a bit fussy for the 0 rotation.
         reconstruction_rots=self.get_rots(moving_plate,absolute_ref_frame,ages)
         #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
@@ -339,20 +367,32 @@ class EulerRotationModel(object):
                                 columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']) 
 
     def synthetic_APWP_flowline(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
+    	"""
+    	Create an APWP object that predicts the Apparent Polar Wander path that should have been generated 
+    	by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole
+    	in the moving_plate reference frame) for specified list of age points.
+    	"""
         return APWP(self.synthetic_APWP(moving_plate,absolute_ref_frame,ages),absolute_ref_frame,SetName,PlotColor,PlotLevel=5)      
 
     def newagemodel(self, timescale='CK95'):
         """
-        *should* overwrite old rotationsets with new ones with new age constraints.
+        WARNING: experimental. *Should* overwrite old rotationsets with new ones where rotation ages timed to reversal
+        ages have been recalibrated to the specified timescale. Current options: 'CK95', 'GTS12'  
         """
         self.rotationsets=([rotationset.newagemodel(timescale) for rotationset in self.rotationsets])                       
                                                                                                                                                           
     def summary(self):
+    	"""
+    	Returns a summary DataFrame for FiniteRotationSets within the current rotation model: 
+    	plate pair codes and names, number of finite rotations, age range.
+    	"""
         return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
                             item.N,item.rotations[0].EndAge,item.rotations[-1].EndAge] for item in self.rotationsets],
                             columns=['MovingPlate','MovingPlateName','FixedPlate','FixedPlateName','N','Youngest','Oldest'])
     def plates(self):
-        #list of unique plate IDs
+        """
+        Returns a list of unique plate IDs within the current rotation model.
+        """
         return list(set([item.MovingPlate for item in self.rotationsets]+[item.FixedPlate for item in self.rotationsets]))
 
 class FiniteRotationSet(object):
