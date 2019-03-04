@@ -8,3 +8,5 @@ PlateRotKit.pyc
 APWPKit.pyc
 
 *.pyc
+
+.DS_Store
