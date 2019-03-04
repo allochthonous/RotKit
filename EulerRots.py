@@ -716,7 +716,7 @@ class Point(object):
     """    
     def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
         """Return object
-        PointPars should be a Series/DataFrame row with name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+        PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
         optionally MaxError,MinError,MaxBearing, otherwise 0 by default
         """ 
         self.PointName = PointPars.Name
