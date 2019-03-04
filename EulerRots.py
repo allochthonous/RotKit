@@ -53,18 +53,18 @@ def get_chron_age(chron,timescale='CK95'):
 	chron. Currently two timescales are available: 'CK95' (Cande & Kent 1995, default) and
 	'GTS12' (Geological Timescale with some astronomically tuned chron boundaries)
 	"""
-    agemodel=pd.read_table(os.path.join(__location__,'Datafiles/'+timescale+'.txt'))
-    if chron[-2]=='n':
-        select=agemodel[agemodel.Chron==chron[1:-1]].index[0]
+	agemodel=pd.read_table(os.path.join(__location__,'Datafiles/'+timescale+'.txt'))
+	if chron[-2]=='n':
+		select=agemodel[agemodel.Chron==chron[1:-1]].index[0]
         if chron[-1]=='y': age=agemodel.iloc[select].Young_Age
         elif chron[-1]=='o': age=agemodel.iloc[select].Old_Age
         elif chron[-1]=='m': age=agemodel.iloc[select].Young_Age+0.5*(agemodel.iloc[select].Old_Age-agemodel.iloc[select].Young_Age)
-    else: #if reversed (unlisted) find the equivalent normal chron
-        select=agemodel[agemodel.Chron==chron[1:-2]+'n'].index[0]
+	else: #if reversed (unlisted) find the equivalent normal chron
+		select=agemodel[agemodel.Chron==chron[1:-2]+'n'].index[0]
         if chron[-1]=='y': age=agemodel.iloc[select].Old_Age
         elif chron[-1]=='o': age=agemodel.iloc[select+1].Young_Age
         elif chron[-1]=='m': age=agemodel.iloc[select].Old_Age+0.5*(agemodel.iloc[select+1].Young_Age-agemodel.iloc[select].Old_Age)  
-    return age    
+	return age    
 
 def find_plate_from_name(text):
     """
@@ -80,22 +80,22 @@ def find_plate_from_number(code):
 	Given a numerical plate code, will return a pandas DataFrame row with the 
 	matching plate code, text code, and description 
 	"""
-    return platecodes.loc[code]
+	return platecodes.loc[code]
 
 def rotmat_to_pole(rot_matrix):
 	"""
 	Converts given a 3x3 rotation matrix rot_matrix into a Euler rotation (lat,long, angle)
 	"""
-    pole_lon=np.arctan((rot_matrix[0,2]-rot_matrix[2,0])/(rot_matrix[2,1]-rot_matrix[1,2]))*180/np.pi
-    if rot_matrix[2,1]-rot_matrix[1,2]<0. : pole_lon=pole_lon+180
-    if pole_lon>180: pole_lon=pole_lon-360
-    if pole_lon<-180: pole_lon=pole_lon+360
-    toss=np.sqrt((rot_matrix[2,1]-rot_matrix[1,2])**2+(rot_matrix[0,2]-rot_matrix[2,0])**2+(rot_matrix[1,0]-rot_matrix[0,1])**2)
-    pole_lat=np.arcsin((rot_matrix[1,0]-rot_matrix[0,1])/toss)*180/np.pi
-    temp=(rot_matrix[0,0]+rot_matrix[1,1]+rot_matrix[2,2]-1.0)
-    pole_ang=np.arctan(toss/(rot_matrix[0,0]+rot_matrix[1,1]+rot_matrix[2,2]-1.0))*180/np.pi
-    if temp<0: pole_ang=pole_ang+180
-    return [pole_lat,pole_lon,pole_ang]
+	pole_lon=np.arctan((rot_matrix[0,2]-rot_matrix[2,0])/(rot_matrix[2,1]-rot_matrix[1,2]))*180/np.pi
+	if rot_matrix[2,1]-rot_matrix[1,2]<0. : pole_lon=pole_lon+180
+	if pole_lon>180: pole_lon=pole_lon-360
+	if pole_lon<-180: pole_lon=pole_lon+360
+	toss=np.sqrt((rot_matrix[2,1]-rot_matrix[1,2])**2+(rot_matrix[0,2]-rot_matrix[2,0])**2+(rot_matrix[1,0]-rot_matrix[0,1])**2)
+	pole_lat=np.arcsin((rot_matrix[1,0]-rot_matrix[0,1])/toss)*180/np.pi
+	temp=(rot_matrix[0,0]+rot_matrix[1,1]+rot_matrix[2,2]-1.0)
+	pole_ang=np.arctan(toss/(rot_matrix[0,0]+rot_matrix[1,1]+rot_matrix[2,2]-1.0))*180/np.pi
+	if temp<0: pole_ang=pole_ang+180
+	return [pole_lat,pole_lon,pole_ang]
 
 def sphere_ang_dist(lat1,long1,lat2,long2,degrees=True):
     """
@@ -136,14 +136,14 @@ def sphere_bearing(lat1,long1,lat2,long2,degrees=True):
     	if (bearing<0): bearing=bearing+360
     return bearing
     
-def sphere_dist_bearing(lat1,long1,lat2,long2,degrees=True)
-	"""
+def sphere_dist_bearing(lat1,long1,lat2,long2,degrees=True):
+    """
 	returns a list containing angular distance and bearing of point (lat2, long2) wrt point
 	(lat1,long1). By default, assumes input coordinates are in degrees and returns distance 
 	in degrees. If degrees=False, then assumes input is in radians and returns distance in radians.
 	"""
-	return [sphere_ang_dist(lat1,long1,lat2,long2,degrees), sphere_bearing(lat1,long1,lat2,long2,degrees)]    
-    
+    return [sphere_ang_dist(lat1,long1,lat2,long2,degrees), sphere_bearing(lat1,long1,lat2,long2,degrees)]  
+
 
 def sphere_point_along_bearing(lat1,long1,bearing,d,degrees=True):
    """
@@ -275,7 +275,7 @@ class EulerRotationModel(object):
         self.rotationsets=newrotset
 
     def find_pairs(self,plate):
-		"""
+        """
 		Searches for any FiniteRotationSets in which the specified plate is one of the plate pair;
 		returns the pairs of platecodes for those FiniteRotationSets (with plate always listed first). 
 		"""    
