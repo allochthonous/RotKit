@@ -14,7 +14,7 @@ import RotKit_f as rotkit_f
 import cartopy.crs as ccrs
 
 #Imports a table for looking up plate codes - potentially useful when building new rotations?
-platecodes=pd.read_table(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, names=['NumCode','LetterCode','Description'],index_col='NumCode')
+platecodes=pd.read_csv(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, sep='\t', names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
 #adds a new ellipse function to Basemap class
 def ellipse(self, lon, lat, a, b, az, **kwargs):
