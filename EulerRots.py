@@ -53,7 +53,7 @@ def get_chron_age(chron,timescale='CK95'):
 	chron. Currently two timescales are available: 'CK95' (Cande & Kent 1995, default) and
 	'GTS12' (Geological Timescale with some astronomically tuned chron boundaries)
 	"""
-	agemodel=pd.read_table(os.path.join(__location__,'Datafiles/'+timescale+'.txt'))
+	agemodel=pd.read_csv(os.path.join(__location__,'Datafiles/'+timescale+'.txt'),sep='\t')
 	if chron[-2]=='n':
 		select=agemodel[agemodel.Chron==chron[1:-1]].index[0]
         if chron[-1]=='y': age=agemodel.iloc[select].Young_Age
@@ -213,12 +213,40 @@ def angle(D1,D2):
         angles.append(angle)
     return np.array(angles)
 
+def rotsets_from_file(rotfile):
+    """
+    Takes a rotation file and returns a list of FiniteRotationSets. 
+    
+    Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
+    where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+    
+    Assumes that finite rotations for each pair are listed together, in chronological order.
+    """
+    rot_data=pd.read_csv(rotfile, sep='\t')
+    rot_data['StartAge']=0
+    rot_data['StartChron']='None'
+    rotationsets=[]
+    for i,row in rot_data.iterrows():
+        if i==0:
+            CurrentMoving=row.MovingPlate
+            CurrentFixed=row.FixedPlate
+            rotations=[]
+        if row.MovingPlate==CurrentMoving and row.FixedPlate==CurrentFixed:
+            rotations.append(EulerRotation(row)) 
+        else:
+            rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
+            CurrentMoving=row.MovingPlate
+            CurrentFixed=row.FixedPlate
+            rotations=[EulerRotation(row)]
+    rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
+    return rotationsets
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 class EulerRotationModel(object):
     """
-    A class which organises the sets of rotations associated with particular plates, initially loaded from an input rotation file.
-    Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
-    where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+    A class for organising and manipulating multiple sets of finite rotations 
+    between different plate pairs.
+    
+    Input: a list of FiniteRotationSets
     
     Attributes:
     
@@ -226,26 +254,10 @@ class EulerRotationModel(object):
     - FixedPlate (currently set to 'None' and not currently used for anything)
     
     """      
-    def __init__(self, rotfile):
+    def __init__(self, rotsets):
         self.FixedPlate='None'
-        rot_data=pd.read_table(rotfile)
-        rot_data['StartAge']=0
-        rot_data['StartChron']='None'
-        self.rotationsets=[]
-        for i,row in rot_data.iterrows():
-            if i==0:
-                CurrentMoving=row.MovingPlate
-                CurrentFixed=row.FixedPlate
-                rotations=[]
-            if row.MovingPlate==CurrentMoving and row.FixedPlate==CurrentFixed:
-                rotations.append(EulerRotation(row)) 
-            else:
-                self.rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
-                CurrentMoving=row.MovingPlate
-                CurrentFixed=row.FixedPlate
-                rotations=[EulerRotation(row)]
-        self.rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
-        
+        self.rotationsets=rotsets
+
     def insert_rots(self,newrots):
         """
         given a list of FiniteRotationSets (either calculated or from another source), 
