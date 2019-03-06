@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import copy,os
+import copy,os,sys
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 import matplotlib.pyplot as plt
@@ -213,6 +213,40 @@ def angle(D1,D2):
         angles.append(angle)
     return np.array(angles)
 
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    
+    Source: https://stackoverflow.com/questions/3041986/apt-command-line-interface-like-yes-no-input#3041990
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
+
 def rotsets_from_file(rotfile):
     """
     Takes a rotation file and returns a list of FiniteRotationSets. 
@@ -264,13 +298,24 @@ class EulerRotationModel(object):
         adds them to the rotation model. 
         NB: currently no consistency checking, so can add conflicting rotations, which would be bad. 
         """
-        #todo: check for conflicting rotations before adding in new ones.
-        for rotationset in newrots:
-            self.rotationsets.append(rotationset)
+        for newrotationset in newrots:
+            #checks if a FiniteRotationSet for the same plate pair already exists in the rotation model
+            if any([(newrotationset.MovingPlate in [rotationset.MovingPlate,rotationset.FixedPlate])
+                & (newrotationset.FixedPlate in [rotationset.MovingPlate,rotationset.FixedPlate]) 
+                for rotationset in self.rotationsets]):
+                #if is a duplication, asks if it should replace or not (default is yes)
+                if query_yes_no("Finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" already exists. Replace?")==True:
+                    self.remove_rots(newrotationset.MovingPlate,newrotationset.FixedPlate)
+                    self.rotationsets.append(newrotationset)
+                    print "Substitution made."
+                else: print "Skipping this pair."    
+            else: 
+                self.rotationsets.append(newrotationset)
+                "Finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" addeed."
     
     def remove_rots(self,plate1,plate2=-1):
         """
-        Remove FiniteRotationSets for the pair plate1, plate2. 
+        Remove FiniteRotationSet for the pair plate1, plate2. 
         If plate2 is not defined, it will removed any FiniteRotationSet that involves plate1.
         """
         newrotset=[]
