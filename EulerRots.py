@@ -395,7 +395,9 @@ class EulerRotationModel(object):
                     selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==plate2) & (rotationset.FixedPlate==plate1)]
                     if selected1: toadd.append(selected1[0])
                     else: toadd.append(selected2[0])
-                for rotset in toadd[1:]: rots_got=rotset.addrots(toadd[0])
+                rots_got=toadd[0]
+                for rotset in toadd[1:]: 
+                    rots_got=rotset.addrots(rots_got)
             else: 
                 print 'Uh-oh: no rotations fit parameters'
                 rots_got=[]
