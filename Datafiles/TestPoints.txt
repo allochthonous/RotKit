@@ -1,0 +1,17 @@
+Name	PlateCode	Lat	Lon	FeatureAge	ReconstructionAge
+Kilauea	901	19.421097	-155.286762	0.	0.
+Hawaii_Hotspot-PAC	3	19.421097	-155.286762	0.	0.
+Hawaii_Hotspot-IA	1	19.421097	-155.286762	0.	0.
+Kent_OH	101	41.15	-81.36	0.	0.
+EPR_Pac 901	-9.14	-108.32	0.	0.
+EPR_Naz	911	-8.93	-109.75	0.	0.
+N-MAR_NA	101	52.02	-30.03	0.	0.
+N-MAR_Eur	301	52.11	-31.26 0.	0.
+C-MAR_NA	101	33.50	-37.80	0.	0.
+C-MAR_Nub	701	33.77	-39.40	0.	0.
+S-MAR_SA	201	-22.15	-11.82	0.	0.
+S-MAR_Nub	701	-22.38	-12.91	0.	0.
+SWPAC_Pac	901	-57.05	-140.34	0.	0.
+SWPAC_Ant	804	-55.79	-144.86	0.	0.
+Hikurangi	901	-40.7	176.5	0.	0.
+Cascadia	101	45.7	-124.4	0.	0.

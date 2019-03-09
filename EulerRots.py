@@ -274,6 +274,17 @@ def rotsets_from_file(rotfile):
             rotations=[EulerRotation(row)]
     rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
     return rotationsets
+
+def points_from_file(pointfile):
+    """
+    Takes a point file and returns a list of Point objects
+    
+    colums in tab-delimited file: Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+    optionally MaxError,MinError,MaxBearing, otherwise 0 by default
+    """
+    point_data=pd.read_csv(pointfile, sep='\t')
+    return [Point(row) for i,row in point_data.iterrows()]
+
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 class EulerRotationModel(object):
     """
@@ -768,7 +779,7 @@ class EulerRotation(object):
                             index=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])   
 
 class Point(object):
-    """ Baseclass for a point that can be acted on by rotations
+    """ Base Class for a point that can be acted on by rotations
     
         Attributes:
         PointName: string describing feature
@@ -816,7 +827,11 @@ class Point(object):
                         facecolor='none', edgecolor=pointcol, zorder=self.PlotLevel-1))
 
     def rotate(self,rotation):
-        """Rotates pointset by EulerRotation rotation
+        """
+        Rotates pointset by rotation EulerRotation and returns a new point with the reconstructed coordinates
+        
+        The rotation itself calls a wrapped fortran routine, i.e. you need to have compiled Rotkit_f on 
+        your machine for this to work.
         """ 
         #intially tried to make a copy and modify it, but it seems you can call the object type to initialise a new version
         result=rotkit_f.rotatepts(np.array([[self.LocPars.PointLat,self.LocPars.PointLong]]),
@@ -829,7 +844,9 @@ class Point(object):
         
     def reconstruct(self,age,refplate,rotmodel):
         """
-        Finds the EulerRotation for specified age, then rotates it
+        A wrapper to .rotate() that finds the desired finite EulerRotation 
+        (of self.PlateCode wrt refplate, from present to age) in EulerRotationModel 
+        rotmodel, then returns the reconstructed point.
         """
         #first check if the reference plate is this plate.
         if refplate==self.PlateCode:
@@ -903,6 +920,9 @@ class Point(object):
                                         columns=['Age','Lat','Lon','PredDec','PredInc'])
         
     def summary(self):
+        """
+        Returns a pandas series in same format as PointPars needed for creation. 
+        """
         return pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.ReconstructionAge]+self.LocPars.tolist(),
                                 index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])       
         
