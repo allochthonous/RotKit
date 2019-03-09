@@ -292,19 +292,25 @@ class EulerRotationModel(object):
         self.FixedPlate='None'
         self.rotationsets=rotsets
 
-    def insert_rots(self,newrots):
+    def insert_rots(self,newrots,ask=True):
         """
         given a list of FiniteRotationSets (either calculated or from another source), 
-        adds them to the rotation model. 
-        NB: currently no consistency checking, so can add conflicting rotations, which would be bad. 
+        adds them to the rotation model. If ask=True, when a FiniteRotationSet for the 
+        same plate pair exists, will ask if you want to replace (default) or skip and 
+        keep the original set. If ask=False, replacement is automatic with 
+        a notification that it has occurred.
         """
         for newrotationset in newrots:
             #checks if a FiniteRotationSet for the same plate pair already exists in the rotation model
             if any([(newrotationset.MovingPlate in [rotationset.MovingPlate,rotationset.FixedPlate])
                 & (newrotationset.FixedPlate in [rotationset.MovingPlate,rotationset.FixedPlate]) 
                 for rotationset in self.rotationsets]):
-                #if is a duplication, asks if it should replace or not (default is yes)
-                if query_yes_no("Finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" already exists. Replace?")==True:
+                if ask==False: # replaces automatically with notification.
+                    print ("Duplicate of finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" found: replaced by new set.")
+                    self.remove_rots(newrotationset.MovingPlate,newrotationset.FixedPlate)
+                    self.rotationsets.append(newrotationset)
+                #if is a duplication and ask=True, asks if it should replace or not (default is yes)
+                elif query_yes_no("Finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" already exists. Replace?")==True:
                     self.remove_rots(newrotationset.MovingPlate,newrotationset.FixedPlate)
                     self.rotationsets.append(newrotationset)
                     print "Substitution made."
