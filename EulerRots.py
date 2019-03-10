@@ -813,7 +813,7 @@ class Point(object):
                                         ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
 
     
-    def mapplot(self,Ellipses=True, PlotAxis=None, OverideCol=None):
+    def mapplot(self, PlotAxis=None, Ellipses=True, OverideCol=None):
         """
         NB: currently set up for Cartopy Geoaxes
         Plots point on pre-existing plot:
@@ -821,8 +821,10 @@ class Point(object):
         - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
         - Plot color will be self.PlotColor unless and OverideCol is defined.       
         """
-        if OverideCol==None: OverideCol=self.PlotColor
-        ax=plt.gca()
+        if OverideCol: OverideCol=self.PlotColor
+        
+        if PlotAxis: ax=PlotAxis
+        else: ax=plt.gca()
         ax.plot(self.LocPars.PointLong,self.LocPars.PointLat, marker='o',
                 ms=self.PlotSymbolSize, color=OverideCol, zorder=self.PlotLevel,
                 transform=ccrs.Geodetic())
@@ -979,7 +981,7 @@ class PointSet(object):
         """
         return [self.points[select] for select in np.where(np.array(self.PlateCodes==platecode))[0]]
 
-    def mapplot(self,Ellipses=True, PlotAxis=None, OverideCol=None):
+    def mapplot(self,PlotAxis=None, Ellipses=True, OverideCol=None):
         """
         NB: currently set up for Cartopy Geoaxes
         Plots points on pre-existing plot:
@@ -987,8 +989,9 @@ class PointSet(object):
         - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
         - Plot color will be self.PlotColor unless and OverideCol is defined.       
         """
+        
         for point in self.points:
-            point.mapplot(Ellipses,PlotAxis,OverideCol)
+            point.mapplot(PlotAxis,Ellipses,OverideCol)
     
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
@@ -1029,8 +1032,8 @@ class PointSet(object):
                             columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
   
                
-class Boundary(PointSet):        
-    """ line that can be acted on by rotations
+class Path(object):        
+    """ line that can be acted on by rotations.
     
         SetName: string describing feature
         PlateCode: tectonic plate code on which points are located
@@ -1039,20 +1042,60 @@ class Boundary(PointSet):
     """
     def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
         """Return object
-        PointList should be a DataFrame with columns name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
-        optionally MaxError,MinError,MaxBearing
+        PointList should be a list of Point Objects
         """
-        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+        self.points=PointList
+        self.SetName = SetName
         self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
-
-        
-    def mapplot(self,thickness=2):          
-        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
-                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
+        self.PlotLevel=PlotLevel 
+        self.PlateCode=PointList.iloc[0].PlateCode
+        #not sure how much, but information about reference frame could be useful
+        self.ReferencePlate=self.PlateCode
+        self.FeatureAge=PointList.iloc[0].FeatureAge
+        self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
+        # list of the different plates points are on.
+ 
+    def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=False, Ellipses=False, OverideCol=None)   
+        if PlotAxis: ax=PlotAxis
+        else: ax=plt.gca()
+       
+        ax.plot(self.summary().Lon.values,self.summary().Lat.values, 
+                linewidth=LineThickness, color=self.PlotColor, zorder=self.PlotLevel,
                 transform=ccrs.Geodetic())
+        if ShowPoints: 
+            for point in self.points: point.mapplot(PlotAxis,Ellipses,self.PlotColor)
+        
+    def rotate(self,rotation):
+        """Rotates pointset by EulerRotation rotation
+        """ 
+        rotated=copy.deepcopy(self)
+        #this is a lot less fiddly than converting rotated point list into format where can create PointSet de novo
+        rotated.points=[point.rotate(rotation) for point in self.points]
+        rotated.ReferencePlate=rotation.FixedPlate
+        rotated.ReconstructionAge=rotation.EndAge
+        return rotated
+    
+    def reconstruct(self,age,refplate,rotmodel):
+        #first check if the reference plate is this plate.
+        if refplate==self.PlateCode:
+            return self
+        #another place where adding the zero rotation could trip you up.
+        else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
+  
+    def motion_vectors(self,refplate,rotmodel,age_range=[1,0]):
+        """
+        calculates the magnitudes and directions of the plate motion vector for each locality relative to the specified
+        reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
+        outputs bearings and rates in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
+        """
+        return pd.DataFrame([point.motion_vector(refplate,rotmodel,age_range) for point in self.points])
 
-class Platelet(PointSet):
+    def summary(self):
+        return pd.DataFrame([[point.PointName,point.PlateCode,point.FeatureAge,point.ReconstructionAge]+point.LocPars.tolist() for point in self.points],
+                            columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
+
+
+class Platelet(Path):
     """ closed Polygon that can be acted on by rotations but no defined subsegments as PlatePolygon
     
         Attributes (inherited from PointSet):
