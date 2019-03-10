@@ -812,19 +812,23 @@ class Point(object):
                                         ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
 
     
-    def mapplot(self,ellipseflag=0,pointcol=""):
+    def mapplot(self,Ellipses=True, PlotAxis=None, OverideCol=None):
         """
-        plots point on preexisting axes (currently set up for Cartopy Geoaxes) 
-        If ellipseflag set to 1, will plot the associated error ellipse
+        NB: currently set up for Cartopy Geoaxes
+        Plots point on pre-existing plot:
+        - if no plot is assigned to PlotAxis, will plot to the currently active plot.
+        - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
+        - Plot color will be self.PlotColor unless and OverideCol is defined.       
         """
-        if pointcol=="": pointcol=self.PlotColor
-        plt.plot(self.LocPars.PointLong,self.LocPars.PointLat, marker='o',
-                ms=self.PlotSymbolSize, color=pointcol, zorder=self.PlotLevel,
-                transform=ccrs.Geodetic())
+        if OverideCol==None: OverideCol=self.PlotColor
         ax=plt.gca()
-        if ellipseflag==1: 
+        ax.plot(self.LocPars.PointLong,self.LocPars.PointLat, marker='o',
+                ms=self.PlotSymbolSize, color=OverideCol, zorder=self.PlotLevel,
+                transform=ccrs.Geodetic())
+        
+        if Ellipses==True and self.LocPars.MaxError>0.: 
             ax.add_patch(ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
-                        facecolor='none', edgecolor=pointcol, zorder=self.PlotLevel-1))
+                        facecolor='none', edgecolor=OverideCol, zorder=self.PlotLevel-1))
 
     def rotate(self,rotation):
         """
