@@ -8,7 +8,7 @@ from matplotlib.patches import Polygon
 import matplotlib.colors as colors
 import matplotlib.colorbar as colorbar
 import matplotlib.cm as cmx
-from mpl_toolkits.basemap import Basemap, shiftgrid
+#from mpl_toolkits.basemap import Basemap, shiftgrid
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import RotKit_f as rotkit_f
 import cartopy.crs as ccrs
@@ -17,21 +17,21 @@ import cartopy.crs as ccrs
 platecodes=pd.read_csv(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, sep='\t', names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
 #adds a new ellipse function to Basemap class
-def ellipse(self, lon, lat, a, b, az, **kwargs):
-    degrad=np.pi/180.
-    ax = self._check_ax()
-    ellipse_angles=np.arange(0,360,0.5)*degrad
-    a,b=a*np.pi/180.,b*np.pi/180.
-    ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
-    ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
-    x, y = self(ellipse_coords[1],ellipse_coords[0])
-    poly = Polygon(zip(x,y), **kwargs)
-    ax.add_patch(poly)
-    # Set axes limits to fit map region.
-    self.set_axes_limits(ax=ax)
-    return poly
-
-Basemap.ellipse = ellipse
+#def ellipse(self, lon, lat, a, b, az, **kwargs):
+#    degrad=np.pi/180.
+#    ax = self._check_ax()
+#    ellipse_angles=np.arange(0,360,0.5)*degrad
+#    a,b=a*np.pi/180.,b*np.pi/180.
+#    ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
+#    ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
+#    x, y = self(ellipse_coords[1],ellipse_coords[0])
+#    poly = Polygon(zip(x,y), **kwargs)
+#    ax.add_patch(poly)
+#    # Set axes limits to fit map region.
+#    self.set_axes_limits(ax=ax)
+#    return poly
+#
+#Basemap.ellipse = ellipse
 
 def ellipse_pars(lon, lat, a, b, az, **kwargs):
     """
@@ -247,9 +247,9 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
-def rotsets_from_file(rotfile):
+def load_rotsets(rotfile):
     """
-    Takes a rotation file and returns a list of FiniteRotationSets. 
+    Takes a rotation file and returns a list of FiniteRotationSets (which can then be used to build an EulerRotationModel).
     
     Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
     where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
@@ -275,9 +275,10 @@ def rotsets_from_file(rotfile):
     rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
     return rotationsets
 
-def points_from_file(pointfile):
+def load_points(pointfile):
     """
-    Takes a point file and returns a list of Point objects
+    Takes a point file and returns a list of Point objects, which can then be used to
+    build PointSet, Path, Platelet objects
     
     colums in tab-delimited file: Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
     optionally MaxError,MinError,MaxBearing, otherwise 0 by default
@@ -932,31 +933,62 @@ class Point(object):
         
 class PointSet(object):
     """ Baseclass for a set of Points assigned to the same plate that can be operated on. 
-        Methods match those for Point: basically loop through them
-        Mapplot plots as individual points.
-    
+        Methods match those for Point, but applied to every point in the set.
+        Mapplot plots as individual points. 
+        
         Attributes:
         SetName: string describing feature
-        PlateCode: tectonic plate code on which points are located
         
-        Other Point attributes (e.g. FeatureAge, colors may vary by point.
+        Other Point attributes (e.g. PlateCode, FeatureAge, colors may vary by point.
     """
-    def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+    def __init__(self,PointList,SetName='PointSet',PlotColor=None,PlotLevel=None):
         """Return object
-        PointList should be a DataFrame with columns name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
-        optionally MaxError,MinError,MaxBearing
+        PointList should be a list of Point objects
+        
+        If a PlotColor, PlotLevel is supplied it will overirde those characteristics for the input points
         """
-        self.points=[Point(point,PlotColor,PlotLevel) for i,point in PointList.iterrows()]
+        self.points=PointList
         self.SetName = SetName
-        self.PlateCode=PointList.iloc[0].PlateCode
+        
+        if PlotColor: 
+            for point in self.points: point.PlotColor=PlotColor
+        if PlotLevel: 
+            for point in self.points: point.PlotLevel=PlotLevel 
+        # originally set up assuming that all points would be on the same plate, but
+        # whereas this is a reasonable assumption for Path and Platelet objects, there
+        # is no real reason this must be the case for a simple set of Points
+        
+#        self.PlateCode=PointList.iloc[0].PlateCode
         #not sure how much, but information about reference frame could be useful
-        self.ReferencePlate=self.PlateCode
-        self.FeatureAge=PointList.iloc[0].FeatureAge
+#        self.ReferencePlate=self.PlateCode
+        
+        # assumption that all points have same ReconstructionAge *is*
+        # reasonable, as whole point of PointSet is ability to apply simultaneous 
+        # transformations.
+        
+#        self.FeatureAge=PointList.iloc[0].FeatureAge
         self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
+        # list of the different plates points are on.
+        self.PlateCodes=list(set([point.PlateCode for point in self.points]))
 
-    def mapplot(self,ellipseflag=0):
+    def filter_by_plate(self,platecode):
+        """
+        returns a list of Point objects in the PointSet with the given platecode.
+        
+        If there are no Points on specified plate, will currently return empty list.
+        """
+        return [self.points[select] for select in np.where(np.array(self.PlateCodes==platecode))[0]]
+
+    def mapplot(self,Ellipses=True, PlotAxis=None, OverideCol=None):
+        """
+        NB: currently set up for Cartopy Geoaxes
+        Plots points on pre-existing plot:
+        - if no plot is assigned to PlotAxis, will plot to the currently active plot.
+        - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
+        - Plot color will be self.PlotColor unless and OverideCol is defined.       
+        """
         for point in self.points:
-            point.mapplot(ellipseflag)
+            point.mapplot(Ellipses,PlotAxis,OverideCol)
     
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
@@ -964,7 +996,7 @@ class PointSet(object):
         rotated=copy.deepcopy(self)
         #this is a lot less fiddly than converting rotated point list into format where can create PointSet de novo
         rotated.points=[point.rotate(rotation) for point in self.points]
-        rotated.ReferencePlate=rotation.FixedPlate
+#        rotated.ReferencePlate=rotation.FixedPlate
         rotated.ReconstructionAge=rotation.EndAge
         return rotated
     
@@ -973,12 +1005,17 @@ class PointSet(object):
         Finds the EulerRotation for specified age, then rotates it
         Todo: drop points where FeatureAge<ReconstructionAge?
         """
-        #first check if the reference plate is this plate.
-        if refplate==self.PlateCode:
-            return self
-        #another place where adding the zero rotation could trip you up.
-        else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
-  
+        # no requirement for all points to be on same plate makes this tricky.
+        # to avoid pointless computation, will only search for a new rotation if required to
+        rotated=[]
+        for platecode in self.PlateCodes:
+            selected=self.filter_by_plate(platecode)
+            #another place where adding the zero rotation could trip you up.
+            rotation=rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1]
+            rotated=rotated+[point.rotate(rotation) for point in selected]
+        #note that if it wasn't before, the points are now sorted by platecode (although platecode is not ordered)
+        return PointSet(rotated)
+    
     def motion_vectors(self,refplate,rotmodel,age_range=[1,0]):
         """
         calculates the magnitudes and directions of the plate motion vector for each locality relative to the specified
