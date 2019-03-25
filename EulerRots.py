@@ -849,25 +849,35 @@ class Point(object):
         rotated.ReferencePlate=rotation.FixedPlate
         return rotated
         
-    def reconstruct(self,age,refplate,rotmodel):
+    def reconstruct(self,age,refplate,rotmodel, invert=False):
         """
         A wrapper to .rotate() that finds the desired finite EulerRotation 
         (of self.PlateCode wrt refplate, from present to age) in EulerRotationModel 
         rotmodel, then returns the reconstructed point.
+        
+        If invert is True, then the refplate becomes the moving plate. 
         """
         #first check if the reference plate is this plate.
         if refplate==self.PlateCode:
             return self
         #another place where adding the zero rotation could trip you up.
+        elif invert==True: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1].invert())
         else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
+            
+    def flowline(self,ages,refplate,rotmodel,SetName='Flowline',PlotColor='grey',PlotLevel=5, invert=False):
+        """
+        Generates a list of Point objects that chart motion of point relative to the 
+        reference plate for the specified age points, that are then used as input 
+        to a Flowline object.
         
-    def flowline(self,ages,refplate,rotmodel,SetName='Flowline',PlotColor='grey',PlotLevel=5):
+        If invert is True, then the motion is of the refplate relative to the point; useful for generating hotspot tracks
+        and APWPs
         """
-        Finds coordinates of line that charts motion of point relative to the reference plate for the specified age points
-        Current output: list of Point objects. Eventually will be a flowline object
-        """
-        return Flowline(pd.DataFrame([self.reconstruct(age,refplate,rotmodel).summary() for age in ages]),refplate,SetName,PlotColor,PlotLevel)
-  
+        
+        if invert==True: ref=self.PlateCode 
+        else: ref=refplate # inverting rotations has possible consequences
+        return Flowline([self.reconstruct(age,refplate,rotmodel,invert) for age in ages],ref,SetName,PlotColor,PlotLevel)
+
     def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0):
         """
         calculates the magnitude and direction of the plate motion vector for this locality relative to the specified
@@ -1048,14 +1058,14 @@ class Path(object):
         self.SetName = SetName
         self.PlotColor=PlotColor
         self.PlotLevel=PlotLevel 
-        self.PlateCode=PointList.iloc[0].PlateCode
+        self.PlateCode=PointList[0].PlateCode
         #not sure how much, but information about reference frame could be useful
         self.ReferencePlate=self.PlateCode
-        self.FeatureAge=PointList.iloc[0].FeatureAge
-        self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
-        # list of the different plates points are on.
+        self.FeatureAge=PointList[0].FeatureAge
+        self.ReconstructionAge=PointList[0].ReconstructionAge
+
  
-    def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=False, Ellipses=False, OverideCol=None)   
+    def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=False, Ellipses=False, OverideCol=None):   
         if PlotAxis: ax=PlotAxis
         else: ax=plt.gca()
        
@@ -1109,12 +1119,11 @@ class Platelet(Path):
     """
     def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
         """Return object
-        PointList should be a DataFrame with columns name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
-        optionally MaxError,MinError,MaxBearing
+        PointList should be a list of Point Objects
         """
-        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
+        Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+#        self.PlotColor=PlotColor
+#        self.PlotLevel=PlotLevel
 
     def mapplot(self,m,thickness=2,transparency=0.5):
         """plot polygon on specified basemap"""
@@ -1126,7 +1135,7 @@ class Platelet(Path):
         plt.plot(self.pltx,self.plty, color=self.PlotColor, linewidth=thickness,zorder=self.PlotLevel,transform=ccrs.Geodetic())
 
         
-class Flowline(PointSet):
+class Flowline(Path):
     """
     A set of points tracking a feature over a range of reconstruction ages
     Attributes:      
@@ -1142,11 +1151,16 @@ class Flowline(PointSet):
     summary:
     """
     def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
-        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
-        self.MovingPlate=PointList.iloc[0].PlateCode
+        Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+#        self.PlotColor=PlotColor
+#        self.PlotLevel=PlotLevel
+        # MovingPlate might be redundant as Path already has PlateCode
+        self.MovingPlate=PointList[0].PlateCode
         self.FixedPlate=RefPlate
+        # not sure if this is the best fix but whereas Path assumes a constant 
+        # reconstruction Age, by definition a flowline has many. 
+        self.ReconstructionAge=None
+        
         
     def mapplot(self,thickness=2):          
         plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
@@ -1182,7 +1196,7 @@ class Flowline(PointSet):
             cb1.set_label('Age (Ma)')                
 
 
-class APWP(PointSet):
+class APWP(Flowline):
     """
     A flowline specifically for APWPs, which unlike the more standard flowline are a reconstruction of time 0
     of the position of the VGP at a particular age. Currently set up to 
@@ -1196,10 +1210,10 @@ class APWP(PointSet):
     plot
     """
     def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
-        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+        Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
         self.PlotColor=PlotColor
         self.PlotLevel=PlotLevel
-        self.MovingPlate=PointList.iloc[0].PlateCode
+        self.MovingPlate=PointList[0].PlateCode
         self.FixedPlate=RefPlate
         
     def mapplot(self,thickness=2):          
