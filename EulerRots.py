@@ -426,22 +426,38 @@ class EulerRotationModel(object):
         if ages:
             rots_got=rots_got.interpolate(ages)
         return rots_got
+    
+    def hotspot_track(self,point,absolute_ref_frame,ages,SetName='Hotspot Track',PlotColor='orange',PlotLevel=5):
+        """
+        Returns a Flowline object that predicts the track made by a hotspot 
+        currently located at the coordinates of the input point at the supplied 
+        list of ages if it is fixed to absolute_ref_frame. Note that currently, there is no 
+    	restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame 
+    	(e.g, hotspot frames 001/Atlantic or 003/Pacific)
+        """
+        return point.flowline(ages,absolute_ref_frame,self,SetName,PlotColor,PlotLevel,invert=True)
+
         
-    def synthetic_APWP(self,moving_plate,absolute_ref_frame,ages):
+    def synthetic_APWP(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
     	"""
-    	Returns a pandas DataFrame that predicts the Apparent Polar Wander path that should have been generated 
+    	Returns a Flowline object that predicts the Apparent Polar Wander path that should have been generated 
     	by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole
     	in the moving_plate reference frame) for specified list of age points. Note that currently, there is no 
     	restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame 
     	(e.g, hotspot frames 001/Atlantic or 003/Pacific)
     	"""
         if ages[0]==0.: ages[0]=0.01 #Gets a bit fussy for the 0 rotation.
-        reconstruction_rots=self.get_rots(moving_plate,absolute_ref_frame,ages)
         #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
         NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
-        VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations[1:]] #zero rotation: more trouble than it's worth?   
-        return pd.DataFrame([['VGP-'+`age`,moving_plate,age,0.,point.LocPars.PointLat,point.LocPars.PointLong,point.LocPars.MaxError,point.LocPars.MinError,point.LocPars.MaxBearing] for point,age in zip(VGPs,ages)],
-                                columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']) 
+        
+        return self.hotspot_track(NPole,absolute_ref_frame,ages,SetName,PlotColor,PlotLevel)
+        
+#        reconstruction_rots=self.get_rots(moving_plate,absolute_ref_frame,ages)
+#        #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
+#        NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
+#        VGPs=[NPole.rotate(rotation) for rotation in reconstruction_rots.invert().rotations[1:]] #zero rotation: more trouble than it's worth?   
+#        return pd.DataFrame([['VGP-'+`age`,moving_plate,age,0.,point.LocPars.PointLat,point.LocPars.PointLong,point.LocPars.MaxError,point.LocPars.MinError,point.LocPars.MaxBearing] for point,age in zip(VGPs,ages)],
+#                                columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']) 
 
     def synthetic_APWP_flowline(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
     	"""
