@@ -792,7 +792,7 @@ class Point(object):
         PlotColor: assigned colour
         PlotLevel: plot level (defaults to 5)
     """    
-    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
+    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=25):
         """Return object
         PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
         optionally MaxError,MinError,MaxBearing, otherwise 0 by default
@@ -822,7 +822,7 @@ class Point(object):
         - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
         - Plot color will be self.PlotColor unless and OverideCol is defined.       
         """
-        if OverideCol: OverideCol=self.PlotColor
+        if OverideCol==None: OverideCol=self.PlotColor
         
         if PlotAxis: ax=PlotAxis
         else: ax=plt.gca()
@@ -1066,7 +1066,7 @@ class Path(object):
         self.ReconstructionAge=PointList[0].ReconstructionAge
 
  
-    def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=False, Ellipses=False, OverideCol=None):   
+    def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=True, Ellipses=False, OverideCol=None):   
         if PlotAxis: ax=PlotAxis
         else: ax=plt.gca()
        
@@ -1162,11 +1162,11 @@ class Flowline(Path):
         # reconstruction Age, by definition a flowline has many. 
         self.ReconstructionAge=None
         
-        
-    def mapplot(self,thickness=2):          
-        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
-                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
-                transform=ccrs.Geodetic())
+#        
+#    def mapplot(self,thickness=2):          
+#        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
+#                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
+#                transform=ccrs.Geodetic())
                             
     def mapplot_age(self,colourmap='plasma_r',plotbar='N',ellipseflag=1):
         age_cmap=plt.get_cmap(colourmap)
