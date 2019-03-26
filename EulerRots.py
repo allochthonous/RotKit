@@ -286,7 +286,13 @@ def load_points(pointfile):
     point_data=pd.read_csv(pointfile, sep='\t')
     return [Point(row) for i,row in point_data.iterrows()]
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+### routines to allow increased vectorisation (and hence speed improvements for path comparisons)
+
+def map_point(pars,startlat,startlong):
+    """improves vectorisation of elliptical sampling routine"""
+    return sphere_point_along_bearing(startlat,startlong,pars[0],pars[1])[::-1]
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
 class EulerRotationModel(object):
     """
     A class for organising and manipulating multiple sets of finite rotations 
@@ -484,7 +490,7 @@ class FiniteRotationSet(object):
         self.FixedPlate=fixedplate
         self.rotations=rotations
         #next bit makes interpolation easier: adds in a zero age rotation if none exists
-        if (self.rotations[0].EndAge==0 and self.rotations[0].StartAge==0)==False: #a possibly unneccesarilty more robust check
+        if (self.rotations[0].EndAge==0 and self.rotations[0].StartAge==0)==False: #a possibly unneccesary more robust check
             newrot=copy.deepcopy(rotations[0]) #creates new rather than referenced copy
             newrot.EndAge=0.
             newrot.StartAge=0.
@@ -878,6 +884,43 @@ class Point(object):
         if invert==True: ref=self.PlateCode 
         else: ref=refplate # inverting rotations has possible consequences
         return Flowline([self.reconstruct(age,refplate,rotmodel,invert) for age in ages],ref,SetName,PlotColor,PlotLevel)
+
+    def resample(self,trials=1000):
+        """
+        Generates a distribution of trials points resampled within the defined 
+        uncertainty ellipse.
+        """
+        #no error=no uncertainty
+        if self.LocPars.MaxError==0: return [[self.LocPars.PointLat,self.LocPars.PointLong] for _ in range(trials)]
+        else:
+            #Spatial correction according to Demarest (1983)
+            ell_sampling=np.column_stack((np.random.normal(0,self.LocPars.MaxError*(0.8/1.96),trials),np.random.normal(0,self.LocPars.MinError*(0.8/1.96),trials)))*np.pi/180.
+            ang_correction=np.repeat(0.,trials)
+            np.put(ang_correction, np.where((ell_sampling[:,0]<0) & (ell_sampling[:,1]>=0)), 1.)
+            np.put(ang_correction, np.where((ell_sampling[:,0]<0) & (ell_sampling[:,1]<0)), 2.)
+            np.put(ang_correction, np.where((ell_sampling[:,0]>=0) & (ell_sampling[:,1]<0)), 1.)
+            
+            R=np.arccos(np.cos(ell_sampling[:,0])*np.cos(ell_sampling[:,1]))
+            #floating point error sometimes means tries to take arcsin>1 or arcsin<-1: combo of np.minimum and np.maximum prevents this by substituting 1/-1 if it happens.
+            A=np.arcsin(np.minimum(1,np.maximum((np.sin(ell_sampling[:,1])/np.sin(R)),-1)))+(ang_correction*np.pi)+(self.LocPars.MaxBearing*np.pi/180.)
+        
+            return np.apply_along_axis(map_point,1,np.column_stack((A*180/np.pi,R*180/np.pi)),self.LocPars.PointLat,self.LocPars.PointLong).tolist()
+
+    def significant_spatial_difference(self,otherpoint,trials=1000):
+        """
+        through resampling of points according to their associated uncertainty parameters, checks to see if their angular separation
+        are statistically significant or not. Currently returns a list with 1/0 for pass/fail and angular separation.
+        Based on bootstrap test for common direction developed by Tauxe
+        """
+        dist1=np.array([dir2cart(resample) for resample in self.resample(trials)])
+        dist2=np.array([dir2cart(resample) for resample in otherpoint.resample(trials)])
+        if (np.percentile(dist1[:,0],2.5) <= np.percentile(dist2[:,0],97.5) 
+            and np.percentile(dist2[:,0],2.5) <= np.percentile(dist1[:,0],97.5)) and (
+            np.percentile(dist1[:,1],2.5) <= np.percentile(dist2[:,1],97.5) and 
+            np.percentile(dist2[:,1],2.5) <= np.percentile(dist1[:,1],97.5)) and (
+            np.percentile(dist1[:,2],2.5) <= np.percentile(dist2[:,2],97.5) and 
+            np.percentile(dist2[:,2],2.5) <= np.percentile(dist1[:,2],97.5)) : return [0, sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong)]
+        else: return [1, sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong)]
 
     def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0):
         """
