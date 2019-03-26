@@ -1,7 +1,5 @@
 Name	PlateCode	Lat	Lon	FeatureAge	ReconstructionAge
 Kilauea	901	19.421097	-155.286762	0.	0.
-Hawaii_Hotspot-PAC	3	19.421097	-155.286762	0.	0.
-Hawaii_Hotspot-IA	1	19.421097	-155.286762	0.	0.
 Kent_OH	101	41.15	-81.36	0.	0.
 EPR_Pac	901	-9.14	-108.32	0.	0.
 EPR_Naz	911	-8.93	-109.75	0.	0.

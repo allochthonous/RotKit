@@ -798,7 +798,7 @@ class Point(object):
         PlotColor: assigned colour
         PlotLevel: plot level (defaults to 5)
     """    
-    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=25):
+    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=12):
         """Return object
         PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
         optionally MaxError,MinError,MaxBearing, otherwise 0 by default
@@ -906,21 +906,30 @@ class Point(object):
         
             return np.apply_along_axis(map_point,1,np.column_stack((A*180/np.pi,R*180/np.pi)),self.LocPars.PointLat,self.LocPars.PointLong).tolist()
 
+    def ang_dist(self,otherpoint):
+        """
+        returns angular distance in degrees to coordinates of otherpoint (another Point object) 
+        """
+        return sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong)
+
     def significant_spatial_difference(self,otherpoint,trials=1000):
         """
-        through resampling of points according to their associated uncertainty parameters, checks to see if their angular separation
-        are statistically significant or not. Currently returns a list with 1/0 for pass/fail and angular separation.
-        Based on bootstrap test for common direction developed by Tauxe
+        Compares position with otherpoint (another Point object), and tests if their angular separation
+        is statistically significant or not by resampling within their associated 
+        uncertainty ellipses. Trials is the number of samples in the comparison population. 
+        
+        Currently returns a list with 1/0 for pass/fail and angular separation.
+        Based on the bootstrap test for common direction developed by Tauxe
         """
-        dist1=np.array([dir2cart(resample) for resample in self.resample(trials)])
-        dist2=np.array([dir2cart(resample) for resample in otherpoint.resample(trials)])
+        dist1=np.array([dir2cart(sample)[0] for sample in self.resample(trials)])
+        dist2=np.array([dir2cart(sample)[0] for sample in otherpoint.resample(trials)])
         if (np.percentile(dist1[:,0],2.5) <= np.percentile(dist2[:,0],97.5) 
             and np.percentile(dist2[:,0],2.5) <= np.percentile(dist1[:,0],97.5)) and (
             np.percentile(dist1[:,1],2.5) <= np.percentile(dist2[:,1],97.5) and 
             np.percentile(dist2[:,1],2.5) <= np.percentile(dist1[:,1],97.5)) and (
             np.percentile(dist1[:,2],2.5) <= np.percentile(dist2[:,2],97.5) and 
-            np.percentile(dist2[:,2],2.5) <= np.percentile(dist1[:,2],97.5)) : return [0, sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong)]
-        else: return [1, sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong)]
+            np.percentile(dist2[:,2],2.5) <= np.percentile(dist1[:,2],97.5)) : return [0, self.ang_dist(otherpoint)]
+        else: return [1, self.ang_dist(otherpoint)]
 
     def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0):
         """
