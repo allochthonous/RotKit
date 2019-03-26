@@ -1108,6 +1108,7 @@ class Path(object):
         PointList should be a list of Point Objects
         """
         self.points=PointList
+        self.point_no=len(self.points)
         self.SetName = SetName
         self.PlotColor=PlotColor
         self.PlotLevel=PlotLevel 
@@ -1127,6 +1128,43 @@ class Path(object):
                 transform=ccrs.Geodetic())
         if ShowPoints: 
             for point in self.points: point.mapplot(PlotAxis,Ellipses,self.PlotColor)
+        
+    def segment_lengths(self):
+        """
+        returns a list of angular distances between path segments (seperation between adjacent points)
+        """
+        return [point1.ang_dist(point2) for point1,point2 in zip(self.points[:-1],self.points[1:])]
+
+    def ang_dist(self,otherpath):
+        """
+        returns a list of angular distances between points on this Path and input Path Object otherpath.
+        WARNING! Currently a very simple function, which assumes that the comparison 
+        path has same number of points, and that those points are coeval. GIGO!
+        """
+        return [point1.ang_dist(point2) for point1,point2 in zip(self.points,otherpath.points)]
+    
+    
+    def spatial_difference(self,otherpath,start=0,end=None,asmean=True,normalisation=50.):
+        """
+        calculates the gcd distance between coeval pairs. By default, returns the mean, but can return a list of individual values if
+        asmean is set to False. By default, will calculate over the whole path, but can sample a subsection by sending desired index values
+        using start and end variables. GCD is capped at the normalisation angle.
+        
+        Modified from function developed by Chenjian Fu: https://github.com/f-i/Spherical_Path_Comparison
+        """
+        if end==None: end=self.point_no
+        if asmean==True: return np.mean([distance/normalisation if distance/normalisation<1. else 1. for distance in self.ang_dist(otherpath)][start:end])
+        else: return [distance/normalisation if distance/normalisation<1. else 1. for distance in self.ang_dist(otherpath)][start:end]
+        
+    def significant_spatial_difference(self,otherpath,trials=1000,start=0,end=None,asmean=True,normalisation=50.):
+        """
+        through resampling of points according to their associated uncertainty parameters, checks to see if the measured separations between coeval points
+        are statistically significant or not. Indistinguishable points have their separation set to 0. 
+        """
+        if end==None: end=self.point_no
+        sig_result=[point1.significant_spatial_difference(point2) for point1,point2 in zip(self.points,otherpath.points)][start:end]
+        if asmean==True: return [(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result]
+        else: return np.mean([(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result])
         
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
