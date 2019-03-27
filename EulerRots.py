@@ -1165,6 +1165,23 @@ class Path(object):
         sig_result=[point1.significant_spatial_difference(point2) for point1,point2 in zip(self.points,otherpath.points)][start:end]
         if asmean==True: return [(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result]
         else: return np.mean([(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result])
+
+    def length_difference(self,otherpath,start=0,end=None,asmean=True):
+        """
+        For each coeval segment, calculates the absolute length difference and then 
+        normalises it by the total length of the two segments. 
+        
+        Scores ->1: one segment very short, one very long (if 1, then one segment has zero length)
+        Scores ->0: segments have almost equal length (if 0, exactly equal)
+        
+        Based on length difference score developed by Chenjian Fu (https://github.com/f-i/Spherical_Path_Comparison)
+        but generalised to any path, not just ones with a duration.
+        """
+        if end==None: end=self.point_no
+        if asmean==True:
+            return np.mean(np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(np.array(self.segment_lengths())+np.array(otherpath.segment_lengths()))[start:end])
+        else:
+            return np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(np.array(self.segment_lengths())+np.array(otherpath.segment_lengths()))[start:end]
         
     def rotate(self,rotation):
         """Rotates pointset by EulerRotation rotation
@@ -1284,7 +1301,18 @@ class Flowline(Path):
             divider=make_axes_locatable(ax1)
             ax2 = divider.append_axes("bottom", size="5%", pad=0.1)
             cb1=colorbar.ColorbarBase(ax2, cmap=age_cmap,norm=cNorm,orientation='horizontal')
-            cb1.set_label('Age (Ma)')                
+            cb1.set_label('Age (Ma)')
+
+    def alt_length_difference(self, otherpath, start=0,end=None,asmean=True):
+        """
+        
+        """
+        if end==None: end=self.point_no
+        if asmean==True:
+            return np.mean(np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(2.7*np.array([point1.ReconstructionAge-point2.ReconstructionAge for point1,point2 in zip(self.points[1:],self.points[:-1])]))[start:end])
+        else:
+            return np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(2.7*np.array([point1.ReconstructionAge-point2.ReconstructionAge for point1,point2 in zip(self.points[1:],self.points[:-1])]))[start:end]
+
 
 
 class APWP(Flowline):
