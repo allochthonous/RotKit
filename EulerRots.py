@@ -247,18 +247,22 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
-def load_rotsets(rotfile):
+def load_rotsets(rotfile, AreStageRots=False):
     """
     Takes a rotation file and returns a list of FiniteRotationSets (which can then be used to build an EulerRotationModel).
     
     Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
     where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
     
+    Stage Rotations can be loaded if AreStageRots set to True. In this case the file must also contain StartAge and StartChron columns.
+    
     Assumes that finite rotations for each pair are listed together, in chronological order.
     """
     rot_data=pd.read_csv(rotfile, sep='\t')
-    rot_data['StartAge']=0
-    rot_data['StartChron']='None'
+    if not AreStageRots: 
+    	rot_data['StartAge']=0
+    	rot_data['StartChron']='None'
+    	# presumes these columns exist in a StageRotationFile
     rotationsets=[]
     for i,row in rot_data.iterrows():
         if i==0:
@@ -293,7 +297,7 @@ def map_point(pars,startlat,startlong):
     return sphere_point_along_bearing(startlat,startlong,pars[0],pars[1])[::-1]
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-class EulerRotationModel(object):
+class EulerRotationModel(object):	
     """
     A class for organising and manipulating multiple sets of finite rotations 
     between different plate pairs.
@@ -402,7 +406,7 @@ class EulerRotationModel(object):
         #Theoretically, this should return a single rotationset, because it either exists in its stated or inverted form 
         selected1=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==movingplate) & (rotationset.FixedPlate==fixedplate)]
         selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==fixedplate) & (rotationset.FixedPlate==movingplate)]
-        #more than one rotationset for a defined plate pair: shouldn't happen in a properly set up rotation model/file...
+        #more than one rotationset for a defined plate pair: shouldn't happen in a properly set up rota	tion model/file...
         if len(selected1)+len(selected2)>1: 
             print 'Uh-oh: multiple rotations fit parameters'
             rots_got=[]
