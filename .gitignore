@@ -1,12 +1,7 @@
-
 RotKit_f.so
-
 RotKit-nonpython.o
-
 PlateRotKit.pyc
-
 APWPKit.pyc
-
 *.pyc
-
 .DS_Store
+.spyproject

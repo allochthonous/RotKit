@@ -247,22 +247,18 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
-def load_rotsets(rotfile, AreStageRots=False):
+def load_rotsets(rotfile):
     """
     Takes a rotation file and returns a list of FiniteRotationSets (which can then be used to build an EulerRotationModel).
     
     Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
     where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
     
-    Stage Rotations can be loaded if AreStageRots set to True. In this case the file must also contain StartAge and StartChron columns.
-    
     Assumes that finite rotations for each pair are listed together, in chronological order.
     """
     rot_data=pd.read_csv(rotfile, sep='\t')
-    if not AreStageRots: 
-    	rot_data['StartAge']=0
-    	rot_data['StartChron']='None'
-    	# presumes these columns exist in a StageRotationFile
+    rot_data['StartAge']=0
+    rot_data['StartChron']='None'
     rotationsets=[]
     for i,row in rot_data.iterrows():
         if i==0:
@@ -279,6 +275,30 @@ def load_rotsets(rotfile, AreStageRots=False):
     rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
     return rotationsets
 
+def load_stagerots(rotfile):    
+    """
+	Takes a rotation file containing stage rotations for a particular plate pair and returns
+	a StageRotationSet object
+	
+	Required header/columns for file: 'MovingPlate','FixedPlate','StartChron','EndChron',
+	'StartAge','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f',
+	'Points','Segs','Plates','DOF','Source'
+    
+    where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and 
+    DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+    
+    Note: unlike load_rotsets expects there to be only plate pair in the file and (currently) no 
+    way of checking/dealing with multiple pairs.  
+	"""
+    rot_data=pd.read_csv(rotfile, sep='\t')
+    for i,row in rot_data.iterrows():
+        if i==0:
+			CurrentMoving=row.MovingPlate
+			CurrentFixed=row.FixedPlate
+			rotations=[]
+        rotations.append(EulerRotation(row))
+    return StageRotationSet(rotations,CurrentMoving,CurrentFixed)
+            
 def load_points(pointfile):
     """
     Takes a point file and returns a list of Point objects, which can then be used to
@@ -606,7 +626,7 @@ class StageRotationSet(object):
         returns an inverted rotationset by sequentially calling the invert method on each rotation
         AFAICT inversion is only meaningful in time for stage poles, so currently that is what it does
         """
-        inverted=FiniteRotationSet([rotation.invert('time') for rotation in self.rotations],self.MovingPlate,self.FixedPlate)
+        inverted=StageRotationSet([rotation.invert('time') for rotation in self.rotations],self.MovingPlate,self.FixedPlate)
         #don't want zeroed rotation for stage poles
         inverted.rotations=inverted.rotations[1:]
         return inverted
