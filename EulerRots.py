@@ -453,7 +453,7 @@ class EulerRotationModel(object):
         elif selected1: rots_got=selected1[0]
         else: rots_got=selected2[0]
         #now interpolate ages if some have been input
-        if ages:
+        if ages and rots_got:
             rots_got=rots_got.interpolate(ages)
         return rots_got
     
