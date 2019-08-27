@@ -605,7 +605,7 @@ class FiniteRotationSet(object):
    
     def summary(self):
         return pd.DataFrame([[item.MovingPlate,item.FixedPlate,item.StartAge,item.EndAge,item.RotPars[0],item.RotPars[1],item.RotPars[2]] for item in self.rotations],
-                                columns=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])
+                                columns=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])[1:] #so don't show zero rotations
                 
 
 class StageRotationSet(object):
