@@ -5,3 +5,4 @@ APWPKit.pyc
 *.pyc
 .DS_Store
 .spyproject
+.ipynb_checkpoints

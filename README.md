@@ -223,7 +223,7 @@ Predicts the Declination and Inclination that should be observed for paleomagnet
 
 Output: pandas DataFrame with columns 'Age', 'Lat' , 'Lon', 'PredDec', 'PredInc'
 
-__TO_DO__ Output as FlowLine (or APWP) object - easier for path comparisons.
+__TO_DO__ Want to think about how to incorporate this with PMagSite objects. May not actually be appropriate for a simple Point object
 
 ### Plotting functions
 
@@ -235,6 +235,7 @@ Plots point on pre-existing plot:
 - Plot color will be self.PlotColor unless an OverideCol is defined. 
 
 __TO_DO__ add option for plotting motion vector
+__TO_DO__ check if OverideCol is actually working
 
 ### Comparison functions
 
@@ -254,7 +255,6 @@ Currently returns list [1/0 for pass/fail, angular separation]
 Based on the bootstrap test for common direction developed by Tauxe (1991)
 
 
-
 ## PointSet
 
 ## Boundary 
@@ -264,6 +264,9 @@ Derived from PointSet but explicitly defined as a line.
 Derived from PointSet but explicitly defined as a closed polygon.
 
 ## Flowline
+
+#### .mapplot()
+__TO_DO__ OverideCol not working
 
 ## APWP
 

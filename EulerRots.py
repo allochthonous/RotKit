@@ -851,7 +851,7 @@ class Point(object):
         Plots point on pre-existing plot:
         - if no plot is assigned to PlotAxis, will plot to the currently active plot.
         - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
-        - Plot color will be self.PlotColor unless and OverideCol is defined.       
+        - Plot color will be self.PlotColor unless an OverideCol is defined.       
         """
         if OverideCol==None: OverideCol=self.PlotColor
         
@@ -898,9 +898,8 @@ class Point(object):
             
     def flowline(self,ages,refplate,rotmodel,SetName='Flowline',PlotColor='grey',PlotLevel=5, invert=False):
         """
-        Generates a list of Point objects that chart motion of point relative to the 
-        reference plate for the specified age points, that are then used as input 
-        to a Flowline object.
+        Generates a FlowLine object that charts motion of point relative to the 
+        reference plate for the specified age points.
         
         If invert is True, then the motion is of the refplate relative to the point; useful for generating hotspot tracks
         and APWPs
@@ -931,13 +930,14 @@ class Point(object):
         
             return np.apply_along_axis(map_point,1,np.column_stack((A*180/np.pi,R*180/np.pi)),self.LocPars.PointLat,self.LocPars.PointLong).tolist()
 
-    def ang_dist(self,otherpoint):
+    def ang_dist(self,otherpoint,degrees=True):
         """
-        returns angular distance in degrees to coordinates of otherpoint (another Point object) 
+        Returns angular distance in degrees or radians (if degrees set to False) 
+        of this point to Point object otherpoint. 
         """
-        return sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong)
+        return sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong, degrees=degrees)
 
-    def significant_spatial_difference(self,otherpoint,trials=1000):
+    def common_dir_test(self,otherpoint,trials=1000):
         """
         Compares position with otherpoint (another Point object), and tests if their angular separation
         is statistically significant or not by resampling within their associated 
@@ -1007,8 +1007,8 @@ class Point(object):
         reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
         rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
         paleoI=[np.arctan(2*np.tan(point.LocPars.PointLat*np.pi/180))*180/np.pi for point in rotated]
-        pp=np.array(([np.sin((90-vgp_lat)*np.pi/180) for vgp_lat in VGPs.Lat]))
-        dphi=np.array(([np.sin((vgp_lon-self.LocPars.PointLong)*np.pi/180) for vgp_lon in VGPs.Lon]))
+        pp=np.array(([np.sin((90-vgp_lat)*np.pi/180) for vgp_lat in VGPs.summary().Lat]))
+        dphi=np.array(([np.sin((vgp_lon-self.LocPars.PointLong)*np.pi/180) for vgp_lon in VGPs.summary().Lon]))
         pm=np.array(([np.sin((90-point.LocPars.PointLat)*np.pi/180) for point in rotated]))
         paleoD=np.arcsin(pp*dphi/pm)*180/np.pi
         return pd.DataFrame(np.column_stack((ages,[point.LocPars.PointLat for point in rotated],[point.LocPars.PointLong for point in rotated],paleoD,paleoI)), 
@@ -1147,9 +1147,10 @@ class Path(object):
     def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=True, Ellipses=False, OverideCol=None):   
         if PlotAxis: ax=PlotAxis
         else: ax=plt.gca()
-       
+        if OverideCol==None: OverideCol=self.PlotColor
+        
         ax.plot(self.summary().Lon.values,self.summary().Lat.values, 
-                linewidth=LineThickness, color=self.PlotColor, zorder=self.PlotLevel,
+                linewidth=LineThickness, color=OverideCol, zorder=self.PlotLevel,
                 transform=ccrs.Geodetic())
         if ShowPoints: 
             for point in self.points: point.mapplot(PlotAxis,Ellipses,self.PlotColor)
@@ -1185,9 +1186,11 @@ class Path(object):
         """
         through resampling of points according to their associated uncertainty parameters, checks to see if the measured separations between coeval points
         are statistically significant or not. Indistinguishable points have their separation set to 0. 
+ 
+        Based on significant spatial difference score developed by Chenjian Fu: https://github.com/f-i/Spherical_Path_Comparison
         """
         if end==None: end=self.point_no
-        sig_result=[point1.significant_spatial_difference(point2) for point1,point2 in zip(self.points,otherpath.points)][start:end]
+        sig_result=[point1.common_dir_test(point2) for point1,point2 in zip(self.points,otherpath.points)][start:end]
         if asmean==True: return [(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result]
         else: return np.mean([(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result])
 
