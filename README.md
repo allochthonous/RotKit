@@ -2,17 +2,16 @@
 RotKit is a python-based set of tools and routines for manipulating Euler rotations and using them for reconstructing plate motions and related tectonic parameters.
 
 ## Current Status
-As of March 2019, many of the core routines are working, stability of code (or said code’s behaviour) is not guaranteed! Also note that some functions 
-are written in Fortran and have been linked to python using f2py. For these functions to work on a new machine, RotKit.f and RotKit-nonpython.f need to be compiled. The instructions listed in RotKit_compile.txt are currently very specific to my own set-up (compiled using gfortran on a Mac running OSX 10.10) but may provide some guidance.
+- As of March 2019, many of the core routines are working, stability of code (or said code’s behaviour) is not guaranteed! 
+- Also note that some functions are written in Fortran and have been linked to python using f2py. For these functions to work on a new machine, RotKit.f and RotKit-nonpython.f need to be compiled. The instructions listed in RotKit_compile.txt are currently very specific to my own set-up (compiled using gfortran on a Mac running OSX 10.10) but may provide some guidance.
 
-# Description of EulerRots.py
-
+# EulerRots.py
 Basic summary: an object oriented framework where various rotation objects (Rotations bundled into RotationSets bundled into a RotationModel) can be manipulated and used to reconstruct various point, line and polygon objects on the Earth's surface.
 
 ## Individual functions
 
 #### rotmat_to_pole(rot_matrix)
-Converts given a 3x3 rotation matrix rot_matrix into a Euler rotation (lat,long,angle)
+Given a 3x3 rotation matrix rot_matrix, converts it into a Euler rotation (lat,long,angle)
 
 ### Spherical Trigonometry Functions
 
@@ -69,18 +68,45 @@ Given a numerical plate code, will return a pandas DataFrame row with the matchi
 
 Data source is ./DataFiles/PlateCodes.txt 
 
-## EulerRotationModel
-A class which organises the sets of rotations associated with particular plates, initially loaded from an input rotation file.
+### Rotation File Functions
 
-Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
+## load_rotsets(rotfile)
+Loads rotation file rotfile, and returns a list of FiniteRotationSets for each unique set of rotations (which can then be used to build an EulerRotationModel). Assumes that finite rotations for a given plate pair are listed together, in chronological order.
 
+Required header/columns for rotfile: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
 
-kappahat, a,b,c,d,e,f are parameters from the covariance matrix.
-
-Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+- kappahat, a,b,c,d,e,f are parameters from the covariance matrix.
+- Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
 
 __TODO__ These parameters are not always available: currently they are filled in with dummy values in the input file, which is both inelegant and opaque. Either need some way of dealing with null values, or consider just doing away with them entirely. 
+    
+## load stage_rots(rotfile)
+Takes a rotation file containing stage rotations for a particular plate pair and returns a StageRotationSet object. Note: unlike load_rotsets() expects there to be only plate pair in the file.
 
+__TODO__  check for (and deal with) stage rotations for multiple plate pairs (though probably not commonly required).
+
+Required header/columns for rotfile: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
+
+- kappahat, a,b,c,d,e,f are parameters from the covariance matrix.
+- Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+
+#### load_points(pointfile)
+Takes a point file and returns a list of Point objects, which can then be used to build PointSet, Path, Platelet objects
+    
+colums in tab-delimited pointfile: 
+
+'Name','PlateCode','Lat','Lon','FeatureAge','ReconstructionAge'; optionally 'MaxError','MinError','MaxBearing', otherwise 0 by default.
+\
+# Euler rotation objects
+
+## EulerRotationModel
+A class for organising and manipulating multiple sets of finite rotations between different plate pairs. Create by command EulerRotationModel(FiniteRotationSets)
+
+Attributes:
+    
+- .rotationsets: list of FiniteRotationSets for a particular plate pair 
+- .FixedPlate (currently set to 'None' and not currently used for anything)
+    
 ### General/summary functions
 
 #### .summary(self)
@@ -91,14 +117,10 @@ Returns a list of unique plate IDs within the current rotation model.
 
 ### Functions for editing rotation model
 
-#### .insert_rots(self,newrots)
-Given a list of FiniteRotationSets (either calculated or from another source), adds them to the rotation model. 
+#### .insert_rots(self,newrots ask=True)
+Given a list of FiniteRotationSets (calculated, from load_rotsets(), from another EulerRotationModel, etc.), adds them to the rotation model. 
 
-NB: currently no consistency checking, so can add conflicting rotations.
-
-__TODO__ Add consistency checking (i.e see whether FiniteRotationSet for equivalent plate pair is in the pre-existing EulerRotationModel, and have a process for combining/replacing them).
-
-__TODO__ Add an insert_rots_from_file function that makes adding rotations from multiple files easier (although again, would want consistency checking).
+If ask=True, when a FiniteRotationSet for the same plate pair exists, will ask if you want to replace (default) or skip and keep the original set. If ask=False, replacement is automatic with a notification that it has occurred
 
 #### .remove_rots(self,plate1,plate2=-1)
 Remove FiniteRotationSets for the pair plate1, plate2. If plate2 is not defined, it will removed any FiniteRotationSet that involves plate1.
@@ -120,7 +142,7 @@ Searches for ways to link startplate to endplate using rotations within the curr
 
 NB: This works by building out a list of all possible circuits from the startplate, and then selecting the ones that end with the endplate. 
 
-#### .getrots(self,movingplate,fixedplate,ages=[],preferred=-1)
+#### .get_rots(self,movingplate,fixedplate,ages=[],preferred=-1)
 Returns a FiniteRotationSet for the movingplate-fixedplate pair. If a list of ages is supplied, 	then the rotationset will consist of the interpolated finite rotations for those ages; otherwise it will be all	available ages in the rotationset. If more than one circuit is possible, then the circuit can be forced through preferred.
 
 If multiple movingplate-fixedplate rotationsets already exist within the rotation model (hopefully unlikely), or no viable plate circuit can be found, an empty list is returned. If multiple viable plate circuits are found, it will use the first one in the list returned from find_circuit().
@@ -129,16 +151,15 @@ __TODO__ Interactively select from multiple plate circuits (or existing rotation
 
 ### Functions that generate other useful things using rotation model
 
-#### .synthetic_APWP(self,moving_plate,absolute_ref_frame,ages)
-Returns a pandas DataFrame that predicts the Apparent Polar Wander path that should have been generated by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole 	in the moving_plate reference frame) for specified list of age points. Note that currently, there is no restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame (e.g, hotspot frames 001/Atlantic or 003/Pacific).
+#### .synthetic_APWP(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5)
+Returns a Flowline object that predicts the Apparent Polar Wander path that should have been generated by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole in the moving_plate reference frame) for specified list of age points. Note that currently, there is no restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame (e.g, hotspot frames 001/Atlantic or 003/Pacific)
 
-__TODO__ break out this function so it acts on an input Point object, then make this a special case which send the North Pole to that function.
 __TODO__ restrict possible absolute_reference_frames to ones that produce meaningful results?
 
-#### .synthetic_APWP_flowline(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5)
-Returns an APWP object that predicts the Apparent Polar Wander path that should have been generated by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole in the moving_plate reference frame) for specified list of age points.
+#### .hotspot_track(self,point,absolute_ref_frame,ages,SetName='Hotspot Track',PlotColor='orange',PlotLevel=5)
+Returns a Flowline object that predicts the track made by a hotspot currently located at the coordinates of the input Point object at the supplied list of ages if it is fixed to absolute_ref_frame. Note that currently, there is no restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame (e.g, hotspot frames 001/Atlantic or 003/Pacific)
 
-__TODO__ related function that produces a more generalised flowline (does APWP need a specialised function? Probably yes, because of its absolute reference frame...?)
+__TODO__ restrict possible absolute_reference_frames to ones that produce meaningful results?
 
 ## FiniteRotationSet
 
@@ -146,7 +167,10 @@ __TODO__ related function that produces a more generalised flowline (does APWP n
 
 ## EulerRotation
 
+# Objects acted upon by Euler rotations
+
 ## Point
+
 
 ## PointSet
 

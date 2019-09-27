@@ -1,6 +1,6 @@
 RotKit_f.so
 RotKit-nonpython.o
-PlateRotKit.pyc
+EulerRots.pyc
 APWPKit.pyc
 *.pyc
 .DS_Store
