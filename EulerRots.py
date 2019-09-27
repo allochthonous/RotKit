@@ -336,11 +336,12 @@ class EulerRotationModel(object):
 
     def insert_rots(self,newrots,ask=True):
         """
-        given a list of FiniteRotationSets (either calculated or from another source), 
-        adds them to the rotation model. If ask=True, when a FiniteRotationSet for the 
-        same plate pair exists, will ask if you want to replace (default) or skip and 
-        keep the original set. If ask=False, replacement is automatic with 
-        a notification that it has occurred.
+        given a list of FiniteRotationSets ((calculated, from load_rotsets(), 
+        from another EulerRotationModel, etc.), adds them to the rotation model. 
+        
+        If ask=True, when a FiniteRotationSet for the same plate pair exists, 
+        will ask if you want to replace (default) or skip and keep the original set. 
+        If ask=False, replacement is automatic with a notification that it has occurred.
         """
         for newrotationset in newrots:
             #checks if a FiniteRotationSet for the same plate pair already exists in the rotation model

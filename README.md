@@ -170,6 +170,89 @@ __TODO__ restrict possible absolute_reference_frames to ones that produce meanin
 # Objects acted upon by Euler rotations
 
 ## Point
+Base Class for a point that can be acted on by rotations
+    
+Attributes:
+- .PointName: string describing feature
+- .PlateCode: tectonic plate code on which point is located
+- .LocPars: pandas Series with Latitude PointLat and Longitude PointLon, plus rotation error ellipse parameters MaxError, MinError, MaxBearing
+- FeatureAge: age of feature
+- ReconstructionAge: age that current set of points has been reconstructed at
+- PlotColor: assigned colour
+- PlotLevel: plot level (defaults to 5)
+
+Created by Point(PointPars) where PointParts is a pandas Series/DataFrame row with Name, PlateCode, Lat, Lon, FeatureAge, ReconstructionAge; also optionally MaxError, MinError, MaxBearing, otherwise 0 by default.
+
+### General functions
+
+#### .summary()
+Returns a pandas series in same format as PointPars needed for creation.
+
+### Transformation/Reconstruction functions
+
+#### .rotate(self,rotation)
+Rotates pointset by rotation EulerRotation and returns a new point with the reconstructed coordinates
+        
+**NB**: The rotation itself calls a wrapped fortran routine, i.e. you need to have compiled Rotkit_f on your machine for this to work.
+
+**NB**: any original spatial uncertainty is not incorporated into the new uncertainty ellipse of the rotated point, which is derived solely from the covariance of the supplied Euler rotation
+
+__TODO__ find some way of incorporating starting spatial uncertainty into rotation (possibly by expressing the error ellipse as a rotation [0,PointLong+90,PointLat] with associated covariance from geographic pole, to which supplied Euler rotation can then be added)
+
+__TODO__ native coding of rotation routine (aspirational)?
+
+#### .reconstruct(self,age,refplate,rotmodel, invert=False)
+A wrapper to .rotate() that finds the desired finite EulerRotation (of self.PlateCode wrt refplate, from present to age) in EulerRotationModel rotmodel, then returns the reconstructed point.
+        
+If invert is True, then the refplate becomes the moving plate (i.e., you are reconstructing motion of refplate relative to point). 
+
+#### .flowline(self,ages,refplate,rotmodel,SetName='Flowline',PlotColor='grey',PlotLevel=5, invert=False)
+Generates a FlowLine object that charts motion of point relative to the reference plate refplate for the specified age points in supplied list ages
+        
+If invert is True, then the motion is of the refplate relative to the point; useful for generating hotspot tracks and APWPs
+
+#### .motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0)
+Calculates the magnitude and direction of the plate motion vector for this locality relative to the specified reference plate refplate, as calculated from EulerRotationModel rot model. By default, it will calculate the most recent interval (last 0.78 Ma of motion). If fixed=1, calculates vector for refplate relative to point
+
+Output: pandas Series with index ['StartAge','EndAge','Rate','Bearing','Distance','NS_component','EW_component']
+
+__TO_DO__ Defaults are not appropriate for points with non-zero reconstruction age. Possibly defaults need to be endage=self.ReconstructionAge and startage=self.ReconstructionAge-1 (or define a delta of -1)? Experimentation required. 
+
+#### .predict_DI(self,ages,rotmodel,abs_ref_frame=3)
+Predicts the Declination and Inclination that should be observed for paleomagnetic samples for time steps given by list ages for this geographic location (for comparison to actual paleomagnetic measurements to check for e.g., remagnetisation). abs_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
+
+Output: pandas DataFrame with columns 'Age', 'Lat' , 'Lon', 'PredDec', 'PredInc'
+
+__TO_DO__ Output as FlowLine (or APWP) object - easier for path comparisons.
+
+### Plotting functions
+
+#### .mapplot(self, PlotAxis=None, Ellipses=True, OverideCol=None)
+ NB: currently set up for Cartopy Geoaxes
+Plots point on pre-existing plot:
+- if no plot is assigned to PlotAxis, will plot to the currently active plot.
+- if Ellipses=True, will plot the associated error ellipse (if an error is defined)
+- Plot color will be self.PlotColor unless an OverideCol is defined. 
+
+__TO_DO__ add option for plotting motion vector
+
+### Comparison functions
+
+#### .ang_dist(self,otherpoint,degrees=True)
+Returns angular distance in degrees or radians (if degrees set to False) of this point to Point object otherpoint.
+
+#### .resample(self,trials=1000)
+Generates a distribution (number of points=trials) resampled according to the defined 95% uncertainty ellipse, in the form of a numpy array of latitudes and longitudes
+
+__TO_DO__ probably don't want to generate a PointSet as mainly used for internal uses (testing for common dir), but some sort of plotting option/function might be helpful for diagnostics? 
+
+#### .common_dir_test(self,otherpoint,trials=1000) 
+Compares position with otherpoint (another Point object), and tests if their angular separation is statistically significant or not by resampling within their associated uncertainty ellipses. Trials is the number of samples in the comparison population. 
+        
+Currently returns list [1/0 for pass/fail, angular separation]
+
+Based on the bootstrap test for common direction developed by Tauxe (1991)
+
 
 
 ## PointSet
