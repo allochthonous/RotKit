@@ -16,35 +16,21 @@ import cartopy.crs as ccrs
 #Imports a table for looking up plate codes - potentially useful when building new rotations?
 platecodes=pd.read_csv(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, sep='\t', names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
-#adds a new ellipse function to Basemap class
-#def ellipse(self, lon, lat, a, b, az, **kwargs):
-#    degrad=np.pi/180.
-#    ax = self._check_ax()
-#    ellipse_angles=np.arange(0,360,0.5)*degrad
-#    a,b=a*np.pi/180.,b*np.pi/180.
-#    ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
-#    ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
-#    x, y = self(ellipse_coords[1],ellipse_coords[0])
-#    poly = Polygon(zip(x,y), **kwargs)
-#    ax.add_patch(poly)
-#    # Set axes limits to fit map region.
-#    self.set_axes_limits(ax=ax)
-#    return poly
-#
-#Basemap.ellipse = ellipse
-
-def ellipse_pars(lon, lat, a, b, az, **kwargs):
+def ellipse_pars(lon, lat, a, b, az):
     """
     given a specified error ellipse will generate a polygon patch 
     that can then be added to a map: currently set up for use with Cartopy.
     """
     degrad=np.pi/180.
-    ellipse_angles=np.arange(0,360,0.5)*degrad
+    ellipse_angles=np.arange(0,360.1,0.5)*degrad
     a,b=a*np.pi/180.,b*np.pi/180.
     ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
     ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
-    poly = Polygon(zip(ellipse_coords[1],ellipse_coords[0]), transform=ccrs.PlateCarree(),**kwargs)
-    return poly
+    return ellipse_coords
+    # Polygon does weird things if error ellipse encloses the pole. Either a bug in cartopy or 
+    # me mucking up the transform. So dropped for now.
+    #poly = Polygon(zip(ellipse_coords[1],ellipse_coords[0]), transform=ccrs.PlateCarree(),**kwargs)
+    #return poly
 
 def get_chron_age(chron,timescale='CK95'):
 	"""
@@ -862,8 +848,10 @@ class Point(object):
                 transform=ccrs.Geodetic())
         
         if Ellipses==True and self.LocPars.MaxError>0.: 
-            ax.add_patch(ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
-                        facecolor='none', edgecolor=OverideCol, zorder=self.PlotLevel-1))
+            ellipse_coords=ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing)
+            ax.plot(ellipse_coords[1],ellipse_coords[0],  transform=ccrs.PlateCarree(), color=OverideCol, zorder=self.PlotLevel-1)
+            #ax.add_patch(ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
+            #            facecolor='none', edgecolor=OverideCol, zorder=self.PlotLevel-1))
 
     def rotate(self,rotation):
         """
