@@ -70,7 +70,7 @@ Data source is ./DataFiles/PlateCodes.txt
 
 ### Rotation File Functions
 
-## load_rotsets(rotfile)
+#### load_rotsets(rotfile)
 Loads rotation file rotfile, and returns a list of FiniteRotationSets for each unique set of rotations (which can then be used to build an EulerRotationModel). Assumes that finite rotations for a given plate pair are listed together, in chronological order.
 
 Required header/columns for rotfile: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
@@ -80,7 +80,7 @@ Required header/columns for rotfile: 'MovingPlate','FixedPlate','Chron','EndAge'
 
 __TODO__ These parameters are not always available: currently they are filled in with dummy values in the input file, which is both inelegant and opaque. Either need some way of dealing with null values, or consider just doing away with them entirely. 
     
-## load stage_rots(rotfile)
+#### load stage_rots(rotfile)
 Takes a rotation file containing stage rotations for a particular plate pair and returns a StageRotationSet object. Note: unlike load_rotsets() expects there to be only plate pair in the file.
 
 __TODO__  check for (and deal with) stage rotations for multiple plate pairs (though probably not commonly required).

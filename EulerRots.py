@@ -1057,7 +1057,7 @@ class PointSet(object):
         # transformations.
         
 #        self.FeatureAge=PointList.iloc[0].FeatureAge
-        self.ReconstructionAge=PointList.iloc[0].ReconstructionAge
+        self.ReconstructionAge=PointList[0].ReconstructionAge
         # list of the different plates points are on.
         self.PlateCodes=list(set([point.PlateCode for point in self.points]))
 
