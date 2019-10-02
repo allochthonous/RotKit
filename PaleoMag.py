@@ -1,7 +1,7 @@
 from pmag import fshdev, dir2cart, cart2dir, dotilt, fisher_mean, angle, vfunc, dokent, Tmatrix, dimap,circ
 import numpy as np
 import pandas as pd
-from EulerRots import sphere_ang_dist
+from EulerRots import sphere_ang_dist, sphere_bearing, Point, PointSet
 import f_untilt as f_untilt
 
 import matplotlib.pyplot as plt
@@ -9,7 +9,80 @@ import matplotlib.cm as cm
 import matplotlib.patches as patches
 import matplotlib.lines as mlines
 
-        
+
+def load_poles(polefile, use_A95=False):
+    """
+    Takes a pole file and returns a list of Point objects based on the pole parameters, including dm/dp
+    
+    colums in tab-delimited file: Name,PlateCode,PoleLat,PoleLon,FeatureAge,ReconstructionAge;
+    dm,dp for error ellipse, or set use_a95=True to look for column a95.
+    """
+    pole_data=pd.read_csv(polefile, sep='\t')
+    if use_A95==True: pole_data['MaxError'], pole_data['MinError']=pole_data['a95'], pole_data['a95'] 
+    else: pole_data['MaxError'], pole_data['MinError']=pole_data['dm'], pole_data['dp']
+    pole_data['MaxBearing']=0.
+    return [PMagMeanPole(row) for i,row in pole_data.iterrows()]
+
+class PMagMeanPole(Point):
+    """
+    Represents a paleomagnetic mean pole; behaves as point does, with some additional attributes and 
+    functions
+    """
+    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=12):
+        Point.__init__(self,PointPars,PlotColor,PlotLevel,PlotSymbolSize)
+        self.PMagPars=pd.Series([PointPars.a95,PointPars.k,PointPars.n], 
+                                index=['a95','k','n'])
+            
+class PMagMeanPoleSet(PointSet):
+    """
+    A collection of paleomagnetic site mean poles
+    """
+    def __init__(self,PointList,age,SetName='PMagPoleSet',PlotColor=None,PlotLevel=None):
+        # assumes all the poles have a common age/fall within common age window 
+        PointSet.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+        self.FeatureAge=age
+        self.PlateCode=PointList[0].PlateCode
+    
+    def fisher_mean(self, raw=False):
+        """
+        calculates the Fisher mean of the poles in this set and by default returns it as a Point object; 
+        if instead raw is set to True it returns a Pandas Series  
+        """
+        result=fisher_mean(np.column_stack((self.summary().Lon, self.summary().Lat)))
+        if raw==True:
+            return pd.Series([result['dec'],result['inc'],result['alpha95'],result['k'],result['n']],
+                            index=['Dec','Inc','a95','k','n'])
+        else:
+            return PMagMeanPole(pd.Series([self.SetName+' Mean Pole', self.PlateCode, result['inc'],result['dec'],
+                                           self.ReconstructionAge, self.FeatureAge, result['alpha95'],result['alpha95'],0.,
+                                           result['alpha95'],result['k'],result['n']],
+                               index=['Name','PlateCode','Lat','Lon','FeatureAge','ReconstructionAge',
+                                      'MaxError','MinError','MaxBearing','a95','k','n']), PlotLevel=10) 
+    
+    def bootstrap_mean(self, trials=1000, raw=False):
+        """
+        Performs parametric bootstrap to calculate mean direction
+        """
+        decs,incs=[],[]
+        for i in range(trials):
+            newmean=fisher_mean([pole.resample(1)[0] for pole in self.points])
+            decs.append(newmean['dec'])
+            incs.append(newmean['inc'])
+        kmean=dokent(zip(decs,incs),1)
+        if raw==True:
+            return pd.Series([kmean['dec'],kmean['inc'],kmean['Zeta'],kmean['Eta'],
+                              sphere_bearing(kmean['inc'],kmean['dec'],kmean['Zinc'],kmean['Zdec'])],
+                              index=['Dec','Inc','MaxError','MinError','MaxBearing'])               
+        else: 
+        #because it is not a Fisher mean, no a95, k... might need to think about how to deal with that...
+            return Point(pd.Series([self.SetName+' Mean Pole', self.PlateCode, kmean['inc'],kmean['dec'],
+                                           self.ReconstructionAge, self.FeatureAge, kmean['Zeta'],kmean['Eta'],
+                                            sphere_bearing(kmean['inc'],kmean['dec'],kmean['Zinc'],kmean['Zdec'])],
+                               index=['Name','PlateCode','Lat','Lon','FeatureAge','ReconstructionAge',
+                                      'MaxError','MinError','MaxBearing']), PlotLevel=10) 
+    
+
+   
 class Synthetic_PMagSite(object):
     """
     A paleomagnetic site 'mean direction' that does not have an underlying set of

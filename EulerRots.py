@@ -18,7 +18,7 @@ platecodes=pd.read_csv(os.path.join(__location__,'Datafiles/PlateCodes.txt'), he
 
 def ellipse_pars(lon, lat, a, b, az):
     """
-    given a specified error ellipse will generate a polygon patch 
+    given a specified error ellipse will generate its lat/lon coordinates 
     that can then be added to a map: currently set up for use with Cartopy.
     """
     degrad=np.pi/180.
