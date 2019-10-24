@@ -718,16 +718,42 @@ class EulerRotation(object):
         half_rot.RotPars.RotAng=half_rot.RotPars.RotAng/2.
         return half_rot
         
+    def antipode(self):
+        """
+        return antipodal rotation (i.e on other side of planet, sense of rotation reversed)
+        """
+        antipodal=EulerRotation(self.details())
+        antipodal.RotPars.RotLat=-antipodal.RotPars.RotLat
+        if antipodal.RotPars.RotLong<=180.: 
+            antipodal.RotPars.RotLong=antipodal.RotPars.RotLong+180.
+        else:
+            antipodal.RotPars.RotLong=antipodal.RotPars.RotLong-180
+        antipodal.RotPars.RotAng=-antipodal.RotPars.RotAng
+        return antipodal
+    
     def addrot(self,other_rot,sense='to'):
-        #adds together this rotation to another one. 
-        # Default sense is that you are adding 'to' other_rot, such that the fixed plate of other_rot is the fixed plate for the result.
-        # If sense is 'on' then the fixed plate of this rotation will be the fixed plate for the result.
-        # Rotation vector addition adapted from fortran code provided by David Rowley, based on vector addition as described in Cox and Hart  p. 232 and 233
-        # Treatment of rotation covariance per Chang 1990 - covariance of combined rotations A and B C=AB, with covariance cova and covb: covc ~= B(t)*covA*B+covB
-        # a linear approximation that assumes rotations *associated with the errors* are small enough to be treated as infintesimal so can be added as vectors.
-        # Condition for this that det(cova) and det (covb) <<1, which seems to be more than met with typical rotation pole covariances.
-        # Adapted from addrot.f (most notes below copied from there) ======  November 3 1988 J-Y R ======= MODIFIED OCTOBER 14, 1991
-      
+        """
+        Adds this EulerRotation to EulerRotation other_rot
+        If sense='to' (default):
+            Fixed plate of other_rot is the fixed plate for the result.
+        If sense='on':
+            Fixed plate of this rotation will be the fixed plate for the result.
+            (which has some applications when adding stage rotations?)
+        
+        Rotation vector addition adapted from fortran code provided by David Rowley, 
+        based on vector addition as described in Cox and Hart p. 232 and 233
+        
+        Treatment of rotation covariance per Chang 1990 - covariance of combined rotations 
+        A and B C=AB, with covariance cova and covb: covc ~= B(t)*covA*B+covB
+        a linear approximation that assumes rotations *associated with the errors* 
+        are small enough to be treated as infintesimal so can be added as vectors.
+        Condition for this that det(cova) and det (covb) <<1, which seems to be more than 
+        met with typical rotation pole covariances.
+        Code and notes adapted from addrot.f  ======  November 3 1988 J-Y R ======= MODIFIED OCTOBER 14, 1991
+  
+        __TOD__ much of code dealing with kappa at low DOF not implemented
+        """
+        
         if sense=='to':
             rot1=EulerRotation(self.details())
             rot2=other_rot
@@ -770,6 +796,10 @@ class EulerRotation(object):
                             'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))
     
     def details(self):
+        """
+        This outputs the rotation parameters in a form that can be used to create a new EuleRotation
+        (useful for the copy with modification functions half_rot() and antipode() )
+        """
         return pd.Series([self.MovingPlate,self.FixedPlate,self.Timescale,self.StartChron,self.EndChron,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
                         self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
                         self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
