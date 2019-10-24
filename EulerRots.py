@@ -32,6 +32,21 @@ def ellipse_pars(lon, lat, a, b, az):
     #poly = Polygon(zip(ellipse_coords[1],ellipse_coords[0]), transform=ccrs.PlateCarree(),**kwargs)
     #return poly
 
+
+def get_polarity_timescale(timescale='CK95',startage=0,endage=False):
+    """
+    returns the geomagnetic polarity timescale specified. If startage or endage
+    is specified, will trim the output to chrons within the specified constraints
+    
+    Currently two timescales are available: 'CK95' (Cande & Kent 1995, default) and
+	'GTS12' (Geological Timescale with some astronomically tuned chron boundaries)
+    """
+    agemodel=pd.read_csv(os.path.join(__location__,'Datafiles/'+timescale+'.txt'),sep='\t')
+    agemodel=agemodel[agemodel.Young_Age>startage]
+    if endage==True:
+        agemodel=agemodel[agemodel.Old_Age<=endage]
+    return agemodel
+
 def get_chron_age(chron,timescale='CK95'):
 	"""
 	Given a chron name as a string with appended 'y', 'm' or 'o', will attempt to look up 
