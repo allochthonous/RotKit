@@ -629,8 +629,9 @@ class StageRotationSet(object):
         AFAICT inversion is only meaningful in time for stage poles, so currently that is what it does
         """
         inverted=StageRotationSet([rotation.invert('time') for rotation in self.rotations],self.MovingPlate,self.FixedPlate)
-        #don't want zeroed rotation for stage poles
-        inverted.rotations=inverted.rotations[1:]
+        # don't want zeroed rotation for stage poles - or do we?
+        # not sure if commented out line is not neccessary for when youngest rotation does not end at 0 Ma
+        #inverted.rotations=inverted.rotations[1:]
         return inverted
                           
     def finiterots(self):
@@ -682,6 +683,24 @@ class EulerRotation(object):
         self.HellingerInfo=pd.Series([rotation.Points,rotation.Segs,rotation.Plates,rotation.DOF], index=['Points','Segs','Plates','DOF'])
         self.Source=rotation.Source
         self.PlotColor=plotcolor
+        self.PlotSymbolSize=12
+        self.PlotLevel=5
+        
+    def mapplot(self, PlotAxis=None, OverideCol=None):
+        """
+        NB: currently set up for Cartopy Geoaxes
+        Plots point on pre-existing plot:
+        - if no plot is assigned to PlotAxis, will plot to the currently active plot.
+        - Plot color will be self.PlotColor unless an OverideCol is defined. 
+        - Currently DOES NOT plot the confidence ellipse, because I need to work out how to do that...
+        """
+        if OverideCol==None: OverideCol=self.PlotColor
+        
+        if PlotAxis: ax=PlotAxis
+        else: ax=plt.gca()
+        ax.plot(self.RotPars.RotLong,self.RotPars.RotLat, marker='o',
+                ms=self.PlotSymbolSize, color=OverideCol, zorder=self.PlotLevel,
+                transform=ccrs.Geodetic())
 
     def make_covmat(self):
         return np.matrix([[self.Covariances.a,self.Covariances.b,self.Covariances.c],
