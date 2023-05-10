@@ -17,35 +17,35 @@ import cartopy.crs as ccrs
 platecodes=pd.read_csv(os.path.join(__location__,'Datafiles/PlateCodes.txt'), header=None, sep='\t', names=['NumCode','LetterCode','Description'],index_col='NumCode')
 
 def ellipse_pars(lon, lat, a, b, az):
-    """
-    given a specified error ellipse will generate its lat/lon coordinates 
-    that can then be added to a map: currently set up for use with Cartopy.
-    """
-    degrad=np.pi/180.
-    ellipse_angles=np.arange(0,360.1,0.5)*degrad
-    a,b=a*np.pi/180.,b*np.pi/180.
-    ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
-    ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
-    return ellipse_coords
-    # Polygon does weird things if error ellipse encloses the pole. Either a bug in cartopy or 
-    # me mucking up the transform. So dropped for now.
-    #poly = Polygon(zip(ellipse_coords[1],ellipse_coords[0]), transform=ccrs.PlateCarree(),**kwargs)
-    #return poly
+	"""
+	given a specified error ellipse will generate its lat/lon coordinates 
+	that can then be added to a map: currently set up for use with Cartopy.
+	"""
+	degrad=np.pi/180.
+	ellipse_angles=np.arange(0,360.1,0.5)*degrad
+	a,b=a*np.pi/180.,b*np.pi/180.
+	ellipser=(a*b)/np.sqrt((a**2*np.sin(ellipse_angles)**2)+(b**2*np.cos(ellipse_angles)**2))
+	ellipse_coords=sphere_point_along_bearing(lat,lon,ellipse_angles/degrad+az,ellipser/degrad)
+	return ellipse_coords
+	# Polygon does weird things if error ellipse encloses the pole. Either a bug in cartopy or 
+	# me mucking up the transform. So dropped for now.
+	#poly = Polygon(zip(ellipse_coords[1],ellipse_coords[0]), transform=ccrs.PlateCarree(),**kwargs)
+	#return poly
 
 
 def get_polarity_timescale(timescale='CK95',startage=0,endage=False):
-    """
-    returns the geomagnetic polarity timescale specified. If startage or endage
-    is specified, will trim the output to chrons within the specified constraints
-    
-    Currently two timescales are available: 'CK95' (Cande & Kent 1995, default) and
+	"""
+	returns the geomagnetic polarity timescale specified. If startage or endage
+	is specified, will trim the output to chrons within the specified constraints
+	
+	Currently two timescales are available: 'CK95' (Cande & Kent 1995, default) and
 	'GTS12' (Geological Timescale with some astronomically tuned chron boundaries)
-    """
-    agemodel=pd.read_csv(os.path.join(__location__,'Datafiles/'+timescale+'.txt'),sep='\t')
-    agemodel=agemodel[agemodel.Young_Age>startage]
-    if endage==True:
-        agemodel=agemodel[agemodel.Old_Age<=endage]
-    return agemodel
+	"""
+	agemodel=pd.read_csv(os.path.join(__location__,'Datafiles/'+timescale+'.txt'),sep='\t')
+	agemodel=agemodel[agemodel.Young_Age>startage]
+	if endage==True:
+		agemodel=agemodel[agemodel.Old_Age<=endage]
+	return agemodel
 
 def get_chron_age(chron,timescale='CK95'):
 	"""
@@ -57,24 +57,24 @@ def get_chron_age(chron,timescale='CK95'):
 	agemodel=pd.read_csv(os.path.join(__location__,'Datafiles/'+timescale+'.txt'),sep='\t')
 	if chron[-2]=='n':
 		select=agemodel[agemodel.Chron==chron[1:-1]].index[0]
-        if chron[-1]=='y': age=agemodel.iloc[select].Young_Age
-        elif chron[-1]=='o': age=agemodel.iloc[select].Old_Age
-        elif chron[-1]=='m': age=agemodel.iloc[select].Young_Age+0.5*(agemodel.iloc[select].Old_Age-agemodel.iloc[select].Young_Age)
+		if chron[-1]=='y': age=agemodel.iloc[select].Young_Age
+		elif chron[-1]=='o': age=agemodel.iloc[select].Old_Age
+		elif chron[-1]=='m': age=agemodel.iloc[select].Young_Age+0.5*(agemodel.iloc[select].Old_Age-agemodel.iloc[select].Young_Age)
 	else: #if reversed (unlisted) find the equivalent normal chron
 		select=agemodel[agemodel.Chron==chron[1:-2]+'n'].index[0]
-        if chron[-1]=='y': age=agemodel.iloc[select].Old_Age
-        elif chron[-1]=='o': age=agemodel.iloc[select+1].Young_Age
-        elif chron[-1]=='m': age=agemodel.iloc[select].Old_Age+0.5*(agemodel.iloc[select+1].Young_Age-agemodel.iloc[select].Old_Age)  
-	return age    
+		if chron[-1]=='y': age=agemodel.iloc[select].Old_Age
+		elif chron[-1]=='o': age=agemodel.iloc[select+1].Young_Age
+		elif chron[-1]=='m': age=agemodel.iloc[select].Old_Age+0.5*(agemodel.iloc[select+1].Young_Age-agemodel.iloc[select].Old_Age)  
+	return age	
 
 def find_plate_from_name(text):
-    """
-    Returns (in the form of a pandas DataFrame) the numerical and text codes and descriptions
-    of plates with the input string fragment 'text' within their descriptions. 
-    Warning: can return multiple matches! (e.g., Pacific will return any matches with 'Pacific' 
-    in the plate description, which is not just the Pacific Plate). 
-    """
-    return platecodes[platecodes.Description.str.contains(text)]
+	"""
+	Returns (in the form of a pandas DataFrame) the numerical and text codes and descriptions
+	of plates with the input string fragment 'text' within their descriptions. 
+	Warning: can return multiple matches! (e.g., Pacific will return any matches with 'Pacific' 
+	in the plate description, which is not just the Pacific Plate). 
+	"""
+	return platecodes[platecodes.Description.str.contains(text)]
 
 def find_plate_from_number(code):
 	"""
@@ -99,51 +99,51 @@ def rotmat_to_pole(rot_matrix):
 	return [pole_lat,pole_lon,pole_ang]
 
 def sphere_ang_dist(lat1,long1,lat2,long2,degrees=True):
-    """
-    calculates the length of the great circle path between points (lat1, long1) 
-    and (lat2, long2) using haversine formula. By default, assumes input coordinates 
-    are in degrees and returns distance in degrees. If degrees=False, then assumes input 
-    is in radians and returns distance in radians
-    
-    Source: http://www.movable-type.co.uk/scripts/latlong.html    
-    """
-    if degrees==True: degrad=np.pi/180.
-    else: degrad=1.
-    dlong=(long2-long1)*degrad
-    dlat=(lat2-lat1)*degrad
-    lat1=lat1*degrad
-    lat2=lat2*degrad 
-    a=np.sin(dlat/2)*np.sin(dlat/2)+np.cos(lat1)*np.cos(lat2)*np.sin(dlong/2)*np.sin(dlong/2)
-    sepdist=2*(np.arctan2(np.sqrt(a),np.sqrt(1-a)))
-    return sepdist/degrad
+	"""
+	calculates the length of the great circle path between points (lat1, long1) 
+	and (lat2, long2) using haversine formula. By default, assumes input coordinates 
+	are in degrees and returns distance in degrees. If degrees=False, then assumes input 
+	is in radians and returns distance in radians
+	
+	Source: http://www.movable-type.co.uk/scripts/latlong.html	
+	"""
+	if degrees==True: degrad=np.pi/180.
+	else: degrad=1.
+	dlong=(long2-long1)*degrad
+	dlat=(lat2-lat1)*degrad
+	lat1=lat1*degrad
+	lat2=lat2*degrad 
+	a=np.sin(dlat/2)*np.sin(dlat/2)+np.cos(lat1)*np.cos(lat2)*np.sin(dlong/2)*np.sin(dlong/2)
+	sepdist=2*(np.arctan2(np.sqrt(a),np.sqrt(1-a)))
+	return sepdist/degrad
    
 def sphere_bearing(lat1,long1,lat2,long2,degrees=True):
-    """
-    returns bearing of point (lat2, long2) wrt point (lat1,long1). By default, assumes 
-    input coordinates are in degrees and returns distance in degrees. If degrees=False, 
-    then assumes input is in radians and returns distance in radians.
-    
-    Source: http://www.movable-type.co.uk/scripts/latlong.html
-    """
-    if degrees==True: degrad=np.pi/180.
-    else: degrad=1.
-    dlong=(long2-long1)*degrad
-    lat1=lat1*degrad
-    lat2=lat2*degrad
-    y = np.sin(dlong)*np.cos(lat2)
-    x = np.cos(lat1)*np.sin(lat2)-np.sin(lat1)*np.cos(lat2)*np.cos(dlong)
-    if degrees==True:
-    	bearing=(np.arctan2(y,x))/degrad
-    	if (bearing<0): bearing=bearing+360
-    return bearing
-    
+	"""
+	returns bearing of point (lat2, long2) wrt point (lat1,long1). By default, assumes 
+	input coordinates are in degrees and returns distance in degrees. If degrees=False, 
+	then assumes input is in radians and returns distance in radians.
+	
+	Source: http://www.movable-type.co.uk/scripts/latlong.html
+	"""
+	if degrees==True: degrad=np.pi/180.
+	else: degrad=1.
+	dlong=(long2-long1)*degrad
+	lat1=lat1*degrad
+	lat2=lat2*degrad
+	y = np.sin(dlong)*np.cos(lat2)
+	x = np.cos(lat1)*np.sin(lat2)-np.sin(lat1)*np.cos(lat2)*np.cos(dlong)
+	if degrees==True:
+		bearing=(np.arctan2(y,x))/degrad
+		if (bearing<0): bearing=bearing+360
+	return bearing
+	
 def sphere_dist_bearing(lat1,long1,lat2,long2,degrees=True):
-    """
+	"""
 	returns a list containing angular distance and bearing of point (lat2, long2) wrt point
 	(lat1,long1). By default, assumes input coordinates are in degrees and returns distance 
 	in degrees. If degrees=False, then assumes input is in radians and returns distance in radians.
 	"""
-    return [sphere_ang_dist(lat1,long1,lat2,long2,degrees), sphere_bearing(lat1,long1,lat2,long2,degrees)]  
+	return [sphere_ang_dist(lat1,long1,lat2,long2,degrees), sphere_bearing(lat1,long1,lat2,long2,degrees)]  
 
 
 def sphere_point_along_bearing(lat1,long1,bearing,d,degrees=True):
@@ -151,1470 +151,1470 @@ def sphere_point_along_bearing(lat1,long1,bearing,d,degrees=True):
    returns lat and long of a point angular distance d at azimuth bearing from initial point
    lat1,long1.  By default, assumes input coordinates are in degrees and returns distance 
    in degrees. If degrees=False, then assumes input is in radians and returns distance in radians.
-   """        
+   """		
    if degrees==True: degrad=np.pi/180.
    else: degrad=1.
    lat1,long1,bearing,d=lat1*degrad,long1*degrad,bearing*degrad,d*degrad
    lat2=np.arcsin(np.sin(lat1)*np.cos(d)+np.cos(lat1)*np.sin(d)*np.cos(bearing))
    long2=long1+np.arctan2(np.sin(bearing)*np.sin(d)*np.cos(lat1),np.cos(d)-np.sin(lat1)*np.sin(lat2))
    return lat2/degrad,long2/degrad
-                                                                                        
+																						
 def dir2cart(d):
-    """
-    converts list or array of vector directions [D,I] to array of cartesian coordinates, in x,y,z
-    Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
-    """
-    ints=np.ones(len(d)).transpose() # get an array of ones to plug into dec,inc pairs
-    d=np.array(d)
-    rad=np.pi/180.
-    if len(d.shape)>1: # array of vectors
-        decs,incs=d[:,0]*rad,d[:,1]*rad
-        if d.shape[1]==3: ints=d[:,2] # take the given lengths
-    else: # single vector
-        decs,incs=np.array(d[0])*rad,np.array(d[1])*rad
-        if len(d)==3: 
-            ints=np.array(d[2])
-        else:
-            ints=np.array([1.])
-    cart=np.array([ints*np.cos(decs)*np.cos(incs),ints*np.sin(decs)*np.cos(incs),ints*np.sin(incs)]).transpose()
-    return cart
+	"""
+	converts list or array of vector directions [D,I] to array of cartesian coordinates, in x,y,z
+	Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
+	"""
+	ints=np.ones(len(d)).transpose() # get an array of ones to plug into dec,inc pairs
+	d=np.array(d)
+	rad=np.pi/180.
+	if len(d.shape)>1: # array of vectors
+		decs,incs=d[:,0]*rad,d[:,1]*rad
+		if d.shape[1]==3: ints=d[:,2] # take the given lengths
+	else: # single vector
+		decs,incs=np.array(d[0])*rad,np.array(d[1])*rad
+		if len(d)==3: 
+			ints=np.array(d[2])
+		else:
+			ints=np.array([1.])
+	cart=np.array([ints*np.cos(decs)*np.cos(incs),ints*np.sin(decs)*np.cos(incs),ints*np.sin(incs)]).transpose()
+	return cart
 
 def cart2dir(cart):
-    """
-    converts list of cartesian [x,y,z] values to spherical coordinates [D,I]. 
-    Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
-    """
-    cart=np.array(cart)
-    rad=np.pi/180. # constant to convert degrees to radians
-    if len(cart.shape)>1:
-        Xs,Ys,Zs=cart[:,0],cart[:,1],cart[:,2]
-    else: #single vector
-        Xs,Ys,Zs=cart[0],cart[1],cart[2]
-    Rs=np.sqrt(Xs**2+Ys**2+Zs**2) # calculate resultant vector length
-    Decs=(np.arctan2(Ys,Xs)/rad)%360. # calculate declination taking care of correct quadrants (arctan2) and making modulo 360.
-    try:
-        Incs=np.arcsin(Zs/Rs)/rad # calculate inclination (converting to degrees) # 
-    except:
-        print 'trouble in cart2dir' # most likely division by zero somewhere
-        return np.zeros(3)
-        
-    return np.array([Decs,Incs,Rs]).transpose() # return the directions list
+	"""
+	converts list of cartesian [x,y,z] values to spherical coordinates [D,I]. 
+	Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
+	"""
+	cart=np.array(cart)
+	rad=np.pi/180. # constant to convert degrees to radians
+	if len(cart.shape)>1:
+		Xs,Ys,Zs=cart[:,0],cart[:,1],cart[:,2]
+	else: #single vector
+		Xs,Ys,Zs=cart[0],cart[1],cart[2]
+	Rs=np.sqrt(Xs**2+Ys**2+Zs**2) # calculate resultant vector length
+	Decs=(np.arctan2(Ys,Xs)/rad)%360. # calculate declination taking care of correct quadrants (arctan2) and making modulo 360.
+	try:
+		Incs=np.arcsin(Zs/Rs)/rad # calculate inclination (converting to degrees) # 
+	except:
+		print('trouble in cart2dir') # most likely division by zero somewhere
+		return np.zeros(3)
+		
+	return np.array([Decs,Incs,Rs]).transpose() # return the directions list
 
 def angle(D1,D2):
-    """
-    call to angle(D1,D2) returns array of angles between lists of two directions D1,D2 where D1 is for example, [[Dec1,Inc1],[Dec2,Inc2],etc.]
-    Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
-    """
-    X1=dir2cart(np.array(D1)) # convert to cartesian from polar
-    X2=dir2cart(np.array(D2))
-    angles=[] # set up a list for angles
-    for k in range(X1.shape[0]): # single vector
-        angle= np.arccos(np.dot(X1[k],X2[k]))*180./np.pi # take the dot product
-        angle=angle%360.
-        angles.append(angle)
-    return np.array(angles)
+	"""
+	call to angle(D1,D2) returns array of angles between lists of two directions D1,D2 where D1 is for example, [[Dec1,Inc1],[Dec2,Inc2],etc.]
+	Source: PMagPy (Lisa Tauxe) https://github.com/PmagPy/PmagPy
+	"""
+	X1=dir2cart(np.array(D1)) # convert to cartesian from polar
+	X2=dir2cart(np.array(D2))
+	angles=[] # set up a list for angles
+	for k in range(X1.shape[0]): # single vector
+		angle= np.arccos(np.dot(X1[k],X2[k]))*180./np.pi # take the dot product
+		angle=angle%360.
+		angles.append(angle)
+	return np.array(angles)
 
 def query_yes_no(question, default="yes"):
-    """Ask a yes/no question via raw_input() and return their answer.
+	"""Ask a yes/no question via raw_input() and return their answer.
 
-    "question" is a string that is presented to the user.
-    "default" is the presumed answer if the user just hits <Enter>.
-        It must be "yes" (the default), "no" or None (meaning
-        an answer is required of the user).
+	"question" is a string that is presented to the user.
+	"default" is the presumed answer if the user just hits <Enter>.
+		It must be "yes" (the default), "no" or None (meaning
+		an answer is required of the user).
 
-    The "answer" return value is True for "yes" or False for "no".
-    
-    Source: https://stackoverflow.com/questions/3041986/apt-command-line-interface-like-yes-no-input#3041990
-    """
-    valid = {"yes": True, "y": True, "ye": True,
-             "no": False, "n": False}
-    if default is None:
-        prompt = " [y/n] "
-    elif default == "yes":
-        prompt = " [Y/n] "
-    elif default == "no":
-        prompt = " [y/N] "
-    else:
-        raise ValueError("invalid default answer: '%s'" % default)
+	The "answer" return value is True for "yes" or False for "no".
+	
+	Source: https://stackoverflow.com/questions/3041986/apt-command-line-interface-like-yes-no-input#3041990
+	"""
+	valid = {"yes": True, "y": True, "ye": True,
+			 "no": False, "n": False}
+	if default is None:
+		prompt = " [y/n] "
+	elif default == "yes":
+		prompt = " [Y/n] "
+	elif default == "no":
+		prompt = " [y/N] "
+	else:
+		raise ValueError("invalid default answer: '%s'" % default)
 
-    while True:
-        sys.stdout.write(question + prompt)
-        choice = raw_input().lower()
-        if default is not None and choice == '':
-            return valid[default]
-        elif choice in valid:
-            return valid[choice]
-        else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "
-                             "(or 'y' or 'n').\n")
+	while True:
+		sys.stdout.write(question + prompt)
+		choice = raw_input().lower()
+		if default is not None and choice == '':
+			return valid[default]
+		elif choice in valid:
+			return valid[choice]
+		else:
+			sys.stdout.write("Please respond with 'yes' or 'no' "
+							 "(or 'y' or 'n').\n")
 
 def load_rotsets(rotfile):
-    """
-    Takes a rotation file and returns a list of FiniteRotationSets (which can then be used to build an EulerRotationModel).
-    
-    Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
-    where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
-    
-    Assumes that finite rotations for each pair are listed together, in chronological order.
-    """
-    rot_data=pd.read_csv(rotfile, sep='\t')
-    rot_data['StartAge']=0
-    rot_data['StartChron']='None'
-    rotationsets=[]
-    for i,row in rot_data.iterrows():
-        if i==0:
-            CurrentMoving=row.MovingPlate
-            CurrentFixed=row.FixedPlate
-            rotations=[]
-        if row.MovingPlate==CurrentMoving and row.FixedPlate==CurrentFixed:
-            rotations.append(EulerRotation(row)) 
-        else:
-            rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
-            CurrentMoving=row.MovingPlate
-            CurrentFixed=row.FixedPlate
-            rotations=[EulerRotation(row)]
-    rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
-    return rotationsets
+	"""
+	Takes a rotation file and returns a list of FiniteRotationSets (which can then be used to build an EulerRotationModel).
+	
+	Required header/columns for file: 'MovingPlate','FixedPlate','Chron','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'
+	where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+	
+	Assumes that finite rotations for each pair are listed together, in chronological order.
+	"""
+	rot_data=pd.read_csv(rotfile, sep='\t')
+	rot_data['StartAge']=0
+	rot_data['StartChron']='None'
+	rotationsets=[]
+	for i,row in rot_data.iterrows():
+		if i==0:
+			CurrentMoving=row.MovingPlate
+			CurrentFixed=row.FixedPlate
+			rotations=[]
+		if row.MovingPlate==CurrentMoving and row.FixedPlate==CurrentFixed:
+			rotations.append(EulerRotation(row)) 
+		else:
+			rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
+			CurrentMoving=row.MovingPlate
+			CurrentFixed=row.FixedPlate
+			rotations=[EulerRotation(row)]
+	rotationsets.append(FiniteRotationSet(rotations,CurrentMoving,CurrentFixed))
+	return rotationsets
 
-def load_stagerots(rotfile):    
-    """
+def load_stagerots(rotfile):	
+	"""
 	Takes a rotation file containing stage rotations for a particular plate pair and returns
 	a StageRotationSet object
 	
 	Required header/columns for file: 'MovingPlate','FixedPlate','StartChron','EndChron',
 	'StartAge','EndAge','RotLat','RotLong','RotAng','Kappahat','a','b','c','d','e','f',
 	'Points','Segs','Plates','DOF','Source'
-    
-    where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and 
-    DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
-    
-    Note: unlike load_rotsets expects there to be only plate pair in the file and (currently) no 
-    way of checking/dealing with multiple pairs.  
+	
+	where a,b,c,d,e,f are parameters from the covariance matrix; Points, Segs, Plates and 
+	DOF/Degrees of Freedom are parameters for the original Hellinger fit for the specified rotation.
+	
+	Note: unlike load_rotsets expects there to be only plate pair in the file and (currently) no 
+	way of checking/dealing with multiple pairs.  
 	"""
-    rot_data=pd.read_csv(rotfile, sep='\t')
-    for i,row in rot_data.iterrows():
-        if i==0:
+	rot_data=pd.read_csv(rotfile, sep='\t')
+	for i,row in rot_data.iterrows():
+		if i==0:
 			CurrentMoving=row.MovingPlate
 			CurrentFixed=row.FixedPlate
 			rotations=[]
-        rotations.append(EulerRotation(row))
-    return StageRotationSet(rotations,CurrentMoving,CurrentFixed)
-            
+		rotations.append(EulerRotation(row))
+	return StageRotationSet(rotations,CurrentMoving,CurrentFixed)
+			
 def load_points(pointfile):
-    """
-    Takes a point file and returns a list of Point objects, which can then be used to
-    build PointSet, Path, Platelet objects
-    
-    colums in tab-delimited file: Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
-    optionally MaxError,MinError,MaxBearing, otherwise 0 by default
-    """
-    point_data=pd.read_csv(pointfile, sep='\t')
-    return [Point(row) for i,row in point_data.iterrows()]
+	"""
+	Takes a point file and returns a list of Point objects, which can then be used to
+	build PointSet, Path, Platelet objects
+	
+	colums in tab-delimited file: Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+	optionally MaxError,MinError,MaxBearing, otherwise 0 by default
+	"""
+	point_data=pd.read_csv(pointfile, sep='\t')
+	return [Point(row) for i,row in point_data.iterrows()]
 
 ### routines to allow increased vectorisation (and hence speed improvements for path comparisons)
 
 def map_point(pars,startlat,startlong):
-    """improves vectorisation of elliptical sampling routine"""
-    return sphere_point_along_bearing(startlat,startlong,pars[0],pars[1])[::-1]
+	"""improves vectorisation of elliptical sampling routine"""
+	return sphere_point_along_bearing(startlat,startlong,pars[0],pars[1])[::-1]
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+																																																																																																																																																																						
 class EulerRotationModel(object):	
-    """
-    A class for organising and manipulating multiple sets of finite rotations 
-    between different plate pairs.
-    
-    Input: a list of FiniteRotationSets
-    
-    Attributes:
-    
-    - rotationsets: list of FiniteRotationSets for a particular plate pair 
-    - FixedPlate (currently set to 'None' and not currently used for anything)
-    
-    """      
-    def __init__(self, rotsets):
-        self.FixedPlate='None'
-        self.rotationsets=rotsets
+	"""
+	A class for organising and manipulating multiple sets of finite rotations 
+	between different plate pairs.
+	
+	Input: a list of FiniteRotationSets
+	
+	Attributes:
+	
+	- rotationsets: list of FiniteRotationSets for a particular plate pair 
+	- FixedPlate (currently set to 'None' and not currently used for anything)
+	
+	"""	  
+	def __init__(self, rotsets):
+		self.FixedPlate='None'
+		self.rotationsets=rotsets
 
-    def insert_rots(self,newrots,ask=True):
-        """
-        given a list of FiniteRotationSets ((calculated, from load_rotsets(), 
-        from another EulerRotationModel, etc.), adds them to the rotation model. 
-        
-        If ask=True, when a FiniteRotationSet for the same plate pair exists, 
-        will ask if you want to replace (default) or skip and keep the original set. 
-        If ask=False, replacement is automatic with a notification that it has occurred.
-        """
-        for newrotationset in newrots:
-            #checks if a FiniteRotationSet for the same plate pair already exists in the rotation model
-            if any([(newrotationset.MovingPlate in [rotationset.MovingPlate,rotationset.FixedPlate])
-                & (newrotationset.FixedPlate in [rotationset.MovingPlate,rotationset.FixedPlate]) 
-                for rotationset in self.rotationsets]):
-                if ask==False: # replaces automatically with notification.
-                    print ("Duplicate of finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" found: replaced by new set.")
-                    self.remove_rots(newrotationset.MovingPlate,newrotationset.FixedPlate)
-                    self.rotationsets.append(newrotationset)
-                #if is a duplication and ask=True, asks if it should replace or not (default is yes)
-                elif query_yes_no("Finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" already exists. Replace?")==True:
-                    self.remove_rots(newrotationset.MovingPlate,newrotationset.FixedPlate)
-                    self.rotationsets.append(newrotationset)
-                    print "Substitution made."
-                else: print "Skipping this pair."    
-            else: 
-                self.rotationsets.append(newrotationset)
-                "Finite rotation set for "+`newrotationset.MovingPlate`+"-"+`newrotationset.FixedPlate`+" addeed."
-    
-    def remove_rots(self,plate1,plate2=-1):
-        """
-        Remove FiniteRotationSet for the pair plate1, plate2. 
-        If plate2 is not defined, it will removed any FiniteRotationSet that involves plate1.
-        """
-        newrotset=[]
-        for rotationset in self.rotationsets:
-            #if no plate 2 specified, removes any rotationset with fixed or moving plate with plate1 code.
-            #or, if you want to be pedantic, doesn't add it to an updated rotationset list.
-            if plate2==-1:
-                if (rotationset.MovingPlate==plate1 or rotationset.FixedPlate==plate1) is False:
-                    newrotset.append(rotationset)
-            #if plate 2 is specified, looks for the plate1-plate2 (or plate2-plate1) pair.
-            else:
-                if (rotationset.MovingPlate==plate1 and rotationset.FixedPlate==plate2) is False and (rotationset.MovingPlate==plate2 and rotationset.FixedPlate==plate1) is False:
-                    newrotset.append(rotationset)
-        self.rotationsets=newrotset
+	def insert_rots(self,newrots,ask=True):
+		"""
+		given a list of FiniteRotationSets ((calculated, from load_rotsets(), 
+		from another EulerRotationModel, etc.), adds them to the rotation model. 
+		
+		If ask=True, when a FiniteRotationSet for the same plate pair exists, 
+		will ask if you want to replace (default) or skip and keep the original set. 
+		If ask=False, replacement is automatic with a notification that it has occurred.
+		"""
+		for newrotationset in newrots:
+			#checks if a FiniteRotationSet for the same plate pair already exists in the rotation model
+			if any([(newrotationset.MovingPlate in [rotationset.MovingPlate,rotationset.FixedPlate])
+				& (newrotationset.FixedPlate in [rotationset.MovingPlate,rotationset.FixedPlate]) 
+				for rotationset in self.rotationsets]):
+				if ask==False: # replaces automatically with notification.
+					print("Duplicate of finite rotation set for {}-{} found: replaced by new set.".format(newrotationset.MovingPlate, newrotationset.FixedPlate))
+					self.remove_rots(newrotationset.MovingPlate,newrotationset.FixedPlate)
+					self.rotationsets.append(newrotationset)
+				#if is a duplication and ask=True, asks if it should replace or not (default is yes)
+				elif query_yes_no("Finite rotation set for {}-{} already exists. Replace?".format(newrotationset.MovingPlate, newrotationset.FixedPlate))==True:
+					self.remove_rots(newrotationset.MovingPlate,newrotationset.FixedPlate)
+					self.rotationsets.append(newrotationset)
+					print("Substitution made.")
+				else: print("Skipping this pair.")   
+			else: 
+				self.rotationsets.append(newrotationset)
+				print("Finite rotation set for {}-{} added.".format(newrotationset.MovingPlate, newrotationset.FixedPlate))
+	
+	def remove_rots(self,plate1,plate2=-1):
+		"""
+		Remove FiniteRotationSet for the pair plate1, plate2. 
+		If plate2 is not defined, it will removed any FiniteRotationSet that involves plate1.
+		"""
+		newrotset=[]
+		for rotationset in self.rotationsets:
+			#if no plate 2 specified, removes any rotationset with fixed or moving plate with plate1 code.
+			#or, if you want to be pedantic, doesn't add it to an updated rotationset list.
+			if plate2==-1:
+				if (rotationset.MovingPlate==plate1 or rotationset.FixedPlate==plate1) is False:
+					newrotset.append(rotationset)
+			#if plate 2 is specified, looks for the plate1-plate2 (or plate2-plate1) pair.
+			else:
+				if (rotationset.MovingPlate==plate1 and rotationset.FixedPlate==plate2) is False and (rotationset.MovingPlate==plate2 and rotationset.FixedPlate==plate1) is False:
+					newrotset.append(rotationset)
+		self.rotationsets=newrotset
 
-    def find_pairs(self,plate):
-        """
+	def find_pairs(self,plate):
+		"""
 		Searches for any FiniteRotationSets in which the specified plate is one of the plate pair;
 		returns the pairs of platecodes for those FiniteRotationSets (with plate always listed first). 
-		"""    
-        circuits=[]
-        pairs=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==plate)]
-        for pair in pairs:
-            circuits.append([pair.MovingPlate,pair.FixedPlate])
-        pairs=[rotationset for rotationset in self.rotationsets if (rotationset.FixedPlate==plate)] 
-        for pair in pairs:
-            circuits.append([pair.FixedPlate,pair.MovingPlate])
-        return circuits  
-     
-    def find_circuit(self,startplate,endplate,preferred=-1):
-    	"""
-    	Searches for ways to link startplate to endplate using rotations within the currently 
-    	defined rotation model. The returned circuit is a list of platecodes that starts with 
-    	startplate and ends with endplate. If multiple possible circuits exist, they will all be returned;
-    	can filter by setting a preferred platecode, although this may not always restrict the list to just one! 
-    	"""
-        # should check to see if both startplate and endplate are included in the rotation model...
-        circuits=self.find_pairs(startplate)
-        plates_used=[startplate]+[pair[-1] for pair in circuits]
-        while len(plates_used)<len(self.plates()): #technically, could check for a pair with endplate in it but if that exists this shouldn't be running...
-            for circuit in circuits:
-                for pair in self.find_pairs(circuit[-1]):
-                    if pair[-1] not in plates_used: #because we don't want to go backwards!
-                        plates_used.append(pair[-1])
-                        circuits.append(circuit+[pair[-1]])
-        found=[circuit for circuit in circuits if circuit[-1]==endplate]
-        if preferred>0: found=[circuit for circuit in found if preferred in circuit[1:-1]]
-        return found
-            
-    def get_rots(self,movingplate,fixedplate,ages=[],preferred=-1):
-    	"""
-    	Returns a FiniteRotationSet for the movingplate-fixedplate pair. If a list of ages is supplied,
-    	then the rotationset will consist of the interpolated finite rotations for those ages; otherwise it will be all
-    	available ages in the rotationset. If more than one circuit is possible, then the circuit can be forced through preferred.
-    	
-    	If multiple movingplate-fixedplate rotationsets already exist within the rotation model (hopefully unlikely), 
-    	or no viable plate circuit can be found, an empty list is returned. 
-    	If multiple viable plate circuits are found, it will use the first one in the list returned from find_circuit().
-    	"""
-        #Theoretically, this should return a single rotationset, because it either exists in its stated or inverted form 
-        selected1=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==movingplate) & (rotationset.FixedPlate==fixedplate)]
-        selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==fixedplate) & (rotationset.FixedPlate==movingplate)]
-        #more than one rotationset for a defined plate pair: shouldn't happen in a properly set up rota	tion model/file...
-        if len(selected1)+len(selected2)>1: 
-            print 'Uh-oh: multiple rotations fit parameters'
-            rots_got=[]
-        #no rotationset for defined plate pair: next want to see if can construct a circuit from other plate pairs in the model     
-        elif selected1==[] and selected2==[]:
-            found=self.find_circuit(movingplate,fixedplate,preferred)
-            if found: 
-                toadd=[]
-                #if a circuit exists, now add the circuit to get the new parameters
-                #note that if more than one circuit is found, currently the first one in the list is used.
-                #could potentially have an interactive prompt?
-                for plate1,plate2 in zip(reversed(found[0][:-1]),reversed(found[0][1:])):
-                    selected1=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==plate1) & (rotationset.FixedPlate==plate2)]
-                    selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==plate2) & (rotationset.FixedPlate==plate1)]
-                    if selected1: toadd.append(selected1[0])
-                    else: toadd.append(selected2[0])
-                rots_got=toadd[0]
-                for rotset in toadd[1:]: 
-                    rots_got=rotset.addrots(rots_got)
-            else: 
-                print 'Uh-oh: no rotations fit parameters'
-                rots_got=[]
-        #not sure if these warning messages are the best way to go around it, but if returning nothing should cause any automated process to bork.
-        elif selected1: rots_got=selected1[0]
-        else: rots_got=selected2[0]
-        #now interpolate ages if some have been input
-        if ages and rots_got:
-            rots_got=rots_got.interpolate(ages)
-        return rots_got
-    
-    def hotspot_track(self,point,absolute_ref_frame,ages,SetName='Hotspot Track',PlotColor='orange',PlotLevel=5):
-        """
-        Returns a Flowline object that predicts the track made by a hotspot 
-        currently located at the coordinates of the input point at the supplied 
-        list of ages if it is fixed to absolute_ref_frame. Note that currently, there is no 
-    	restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame 
-    	(e.g, hotspot frames 001/Atlantic or 003/Pacific)
-        """
-        return point.flowline(ages,absolute_ref_frame,self,SetName,PlotColor,PlotLevel,invert=True)
+		"""	
+		circuits=[]
+		pairs=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==plate)]
+		for pair in pairs:
+			circuits.append([pair.MovingPlate,pair.FixedPlate])
+		pairs=[rotationset for rotationset in self.rotationsets if (rotationset.FixedPlate==plate)] 
+		for pair in pairs:
+			circuits.append([pair.FixedPlate,pair.MovingPlate])
+		return circuits  
+	 
+	def find_circuit(self,startplate,endplate,preferred=-1):
+		"""
+		Searches for ways to link startplate to endplate using rotations within the currently 
+		defined rotation model. The returned circuit is a list of platecodes that starts with 
+		startplate and ends with endplate. If multiple possible circuits exist, they will all be returned;
+		can filter by setting a preferred platecode, although this may not always restrict the list to just one! 
+		"""
+		# should check to see if both startplate and endplate are included in the rotation model...
+		circuits=self.find_pairs(startplate)
+		plates_used=[startplate]+[pair[-1] for pair in circuits]
+		while len(plates_used)<len(self.plates()): #technically, could check for a pair with endplate in it but if that exists this shouldn't be running...
+			for circuit in circuits:
+				for pair in self.find_pairs(circuit[-1]):
+					if pair[-1] not in plates_used: #because we don't want to go backwards!
+						plates_used.append(pair[-1])
+						circuits.append(circuit+[pair[-1]])
+		found=[circuit for circuit in circuits if circuit[-1]==endplate]
+		if preferred>0: found=[circuit for circuit in found if preferred in circuit[1:-1]]
+		return found
+			
+	def get_rots(self,movingplate,fixedplate,ages=[],preferred=-1):
+		"""
+		Returns a FiniteRotationSet for the movingplate-fixedplate pair. If a list of ages is supplied,
+		then the rotationset will consist of the interpolated finite rotations for those ages; otherwise it will be all
+		available ages in the rotationset. If more than one circuit is possible, then the circuit can be forced through preferred.
+		
+		If multiple movingplate-fixedplate rotationsets already exist within the rotation model (hopefully unlikely), 
+		or no viable plate circuit can be found, an empty list is returned. 
+		If multiple viable plate circuits are found, it will use the first one in the list returned from find_circuit().
+		"""
+		#Theoretically, this should return a single rotationset, because it either exists in its stated or inverted form 
+		selected1=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==movingplate) & (rotationset.FixedPlate==fixedplate)]
+		selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==fixedplate) & (rotationset.FixedPlate==movingplate)]
+		#more than one rotationset for a defined plate pair: shouldn't happen in a properly set up rota	tion model/file...
+		if len(selected1)+len(selected2)>1: 
+			print('Uh-oh: multiple rotations fit parameters')
+			rots_got=[]
+		#no rotationset for defined plate pair: next want to see if can construct a circuit from other plate pairs in the model	 
+		elif selected1==[] and selected2==[]:
+			found=self.find_circuit(movingplate,fixedplate,preferred)
+			if found: 
+				toadd=[]
+				#if a circuit exists, now add the circuit to get the new parameters
+				#note that if more than one circuit is found, currently the first one in the list is used.
+				#could potentially have an interactive prompt?
+				for plate1,plate2 in zip(reversed(found[0][:-1]),reversed(found[0][1:])):
+					selected1=[rotationset for rotationset in self.rotationsets if (rotationset.MovingPlate==plate1) & (rotationset.FixedPlate==plate2)]
+					selected2=[rotationset.invert() for rotationset in self.rotationsets if (rotationset.MovingPlate==plate2) & (rotationset.FixedPlate==plate1)]
+					if selected1: toadd.append(selected1[0])
+					else: toadd.append(selected2[0])
+				rots_got=toadd[0]
+				for rotset in toadd[1:]: 
+					rots_got=rotset.addrots(rots_got)
+			else: 
+				print('Uh-oh: no rotations fit parameters')
+				rots_got=[]
+		#not sure if these warning messages are the best way to go around it, but if returning nothing should cause any automated process to bork.
+		elif selected1: rots_got=selected1[0]
+		else: rots_got=selected2[0]
+		#now interpolate ages if some have been input
+		if ages and rots_got:
+			rots_got=rots_got.interpolate(ages)
+		return rots_got
+	
+	def hotspot_track(self,point,absolute_ref_frame,ages,SetName='Hotspot Track',PlotColor='orange',PlotLevel=5):
+		"""
+		Returns a Flowline object that predicts the track made by a hotspot 
+		currently located at the coordinates of the input point at the supplied 
+		list of ages if it is fixed to absolute_ref_frame. Note that currently, there is no 
+		restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame 
+		(e.g, hotspot frames 001/Atlantic or 003/Pacific)
+		"""
+		return point.flowline(ages,absolute_ref_frame,self,SetName,PlotColor,PlotLevel,invert=True)
 
-        
-    def synthetic_APWP(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
-    	"""
-    	Returns a Flowline object that predicts the Apparent Polar Wander path that should have been generated 
-    	by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole
-    	in the moving_plate reference frame) for specified list of age points. Note that currently, there is no 
-    	restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame 
-    	(e.g, hotspot frames 001/Atlantic or 003/Pacific)
-    	"""
-        if ages[0]==0.: ages[0]=0.01 #Gets a bit fussy for the 0 rotation.
-        #At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
-        NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
-        
-        return self.hotspot_track(NPole,absolute_ref_frame,ages,SetName,PlotColor,PlotLevel)
-        
-    def newagemodel(self, timescale='CK95'):
-        """
-        WARNING: experimental. *Should* overwrite old rotationsets with new ones where rotation ages timed to reversal
-        ages have been recalibrated to the specified timescale. Current options: 'CK95', 'GTS12'  
-        """
-        self.rotationsets=([rotationset.newagemodel(timescale) for rotationset in self.rotationsets])                       
-                                                                                                                                                          
-    def summary(self):
-    	"""
-    	Returns a summary DataFrame for FiniteRotationSets within the current rotation model: 
-    	plate pair codes and names, number of finite rotations, age range.
-    	"""
-        return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
-                            item.N,item.rotations[0].EndAge,item.rotations[-1].EndAge] for item in self.rotationsets],
-                            columns=['MovingPlate','MovingPlateName','FixedPlate','FixedPlateName','N','Youngest','Oldest'])
-    def plates(self):
-        """
-        Returns a list of unique plate IDs within the current rotation model.
-        """
-        return list(set([item.MovingPlate for item in self.rotationsets]+[item.FixedPlate for item in self.rotationsets]))
+		
+	def synthetic_APWP(self,moving_plate,absolute_ref_frame,ages,SetName='APWP',PlotColor='orange',PlotLevel=5):
+		"""
+		Returns a Flowline object that predicts the Apparent Polar Wander path that should have been generated 
+		by motion of moving_plate in absolute_ref_frame (i.e reconstructed position of geographic North Pole
+		in the moving_plate reference frame) for specified list of age points. Note that currently, there is no 
+		restriction on what reference frame is used, but this will only be meaningful if it is an absolute frame 
+		(e.g, hotspot frames 001/Atlantic or 003/Pacific)
+		"""
+		if ages[0]==0.: ages[0]=0.01 #Gets a bit fussy for the 0 rotation.
+		#At the reconstruction age, the VGP is at the North Pole and then drifts away from it. so use the inverted rotations
+		NPole=Point(pd.Series(['VGP',moving_plate,0.,0.,90,0.],index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon']))
+		
+		return self.hotspot_track(NPole,absolute_ref_frame,ages,SetName,PlotColor,PlotLevel)
+		
+	def newagemodel(self, timescale='CK95'):
+		"""
+		WARNING: experimental. *Should* overwrite old rotationsets with new ones where rotation ages timed to reversal
+		ages have been recalibrated to the specified timescale. Current options: 'CK95', 'GTS12'  
+		"""
+		self.rotationsets=([rotationset.newagemodel(timescale) for rotationset in self.rotationsets])					   
+																																						  
+	def summary(self):
+		"""
+		Returns a summary DataFrame for FiniteRotationSets within the current rotation model: 
+		plate pair codes and names, number of finite rotations, age range.
+		"""
+		return pd.DataFrame([[item.MovingPlate,find_plate_from_number(item.MovingPlate).Description,item.FixedPlate,find_plate_from_number(item.FixedPlate).Description,
+							item.N,item.rotations[0].EndAge,item.rotations[-1].EndAge] for item in self.rotationsets],
+							columns=['MovingPlate','MovingPlateName','FixedPlate','FixedPlateName','N','Youngest','Oldest'])
+	def plates(self):
+		"""
+		Returns a list of unique plate IDs within the current rotation model.
+		"""
+		return list(set([item.MovingPlate for item in self.rotationsets]+[item.FixedPlate for item in self.rotationsets]))
 
 class FiniteRotationSet(object):
-    """
-    a collection of finite EulerRotations with common moving and fixed plates. Methods to easily list set parameters such as ages, chrons,
-    generate interpolated rotations and stage rotations
-    """
-    def __init__(self, rotations,movingplate,fixedplate):
-        #where rotations is a list of EulerRotation objects
-        self.MovingPlate=movingplate
-        self.FixedPlate=fixedplate
-        self.rotations=rotations
-        #next bit makes interpolation easier: adds in a zero age rotation if none exists
-        if (self.rotations[0].EndAge==0 and self.rotations[0].StartAge==0)==False: #a possibly unneccesary more robust check
-            newrot=copy.deepcopy(rotations[0]) #creates new rather than referenced copy
-            newrot.EndAge=0.
-            newrot.StartAge=0.
-            newrot.EndChron='None'
-            newrot.RotPars.RotAng=0.
-            self.rotations.insert(0,newrot)
-        self.N=len(rotations)
-        
-    def invert(self, inverting='plate'):
-        """
-        returns an inverted rotationset by sequentially calling the invert method on each rotation
-        By default will also invert the plate codes, set second argument to 'time'
-        to invert starting and ending ages for rotation instead.
-        """
-        return FiniteRotationSet([rotation.invert(inverting) for rotation in self.rotations],self.FixedPlate,self.MovingPlate)
-        
-    def interpolate(self, ages):
-        """ 
-        Returns a rotation set of interpolated poles and covariances, for specified list of target ages. 
-        Searches for the two bracketing rotations for each target age, following method of Doubrovine and Tarduno (2008). 
-        Uses fortran routine ibfrlib0.3.f provided by Pavel Doubrovine, wrapped for python using f2py
-        compiled with python wrapped using f2py
-        """
-        interpolated=[]
-        ages.sort() #just in case
-        for age in ages:
-            age=float(age) #also just in case
-            poleages=[item.EndAge for item in self.rotations]
-            if age>=min(poleages) and age<=max(poleages):
-                #check provided age is within range of given poles
-                match=[rotation for rotation in self.rotations if (rotation.EndAge==age)]
-                if match:
-                    #checks there is a point in interpolating. If a rotation exists with the given age, can just use that.
-                    interpolated.append(match[0])
-                else: 
-                    #get bracketing rotations
-                    A1=[rotation for rotation in self.rotations if (rotation.EndAge<age)][-1]
-                    A2=[rotation for rotation in self.rotations if (rotation.EndAge>age)][0]
-                    xi=(age-A1.EndAge)/(A2.EndAge-A1.EndAge)
-                    #do the interpolation by calling finb2       
-                    newrot,newcovmat=rotkit_f.finb2(A1.RotPars.tolist(),A1.make_covmat(),A2.RotPars.tolist(),A2.make_covmat(),xi)
-                    ndata=(A1.HellingerInfo.Points+A2.HellingerInfo.Points)/2 #not sure if this is justified but need something..
-                    #this is admittedly a little clunky, but it does the job.
-                    interpolated.append(EulerRotation(pd.Series([A1.MovingPlate,A1.FixedPlate,A1.StartChron,'None',0.,age,
-                    newrot[0],newrot[1],newrot[2],
-                    1.0,newcovmat[0,0],newcovmat[0,1],newcovmat[0,2],newcovmat[1,1],newcovmat[1,2],newcovmat[2,2],
-                    ndata,A1.HellingerInfo.Segs,A1.HellingerInfo.Plates,A1.HellingerInfo.DOF,'Interpolated'],
-                    index=['MovingPlate','FixedPlate','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
-                    'RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])))
-        return FiniteRotationSet(interpolated,self.MovingPlate,self.FixedPlate)
-                  
-    def stagerots(self):
-        srots=[]
-        #get the stage rotations between each finite rotation in the RotationSet.
-        for rot1,rot2 in zip(self.rotations[:-1],self.rotations[1:]):  
-            srot=rotmat_to_pole(rot2.make_rotmat()*np.transpose(rot1.make_rotmat()))
-            #calculation of covariance matrix for stage rotation between A1 and A2 = A1*(cov2-cov1)
-            #from Appendix to Doubrovine & Tarduno 2008
-            cov_matrix_s=rot1.make_rotmat()*(rot2.make_covmat()-rot1.make_covmat())
-            #not sure that this is totally valid - may be better to just put in smallest number of points?
-            points=(rot1.HellingerInfo.Points+rot2.HellingerInfo.Points)/2
-            srots.append(EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,rot1.EndChron,rot2.EndChron,rot1.EndAge,rot2.EndAge,
-                    srot[0],srot[1],srot[2],
-                    1.0,cov_matrix_s[0,0],cov_matrix_s[0,1],cov_matrix_s[0,2],cov_matrix_s[1,1],cov_matrix_s[1,2],cov_matrix_s[2,2],
-                    points,'NA','NA',10000,'Interpolated Stage Pole'],
-                    index=['MovingPlate','FixedPlate','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
-                    'RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])))    
-        return StageRotationSet(srots,self.MovingPlate,self.FixedPlate)
-        
-    def addrots(self,other_rotset,ages=[],sense='to'):
-        #adds this rotationset to another one at specified age steps: if no ages provided will interpolate to all finite rotation ages 
-        # Default sense is that you are adding 'to' other_rot, such that the fixed plate of other_rot is the fixed plate for the result.
-        # If sense is 'on' then the fixed plate of this rotation will be the fixed plate for the result.
-        if not ages:
-            ages=list(set(self.summary().EndAge.tolist()+other_rotset.summary().EndAge.tolist()))
-            ages.sort()
-        if sense=='to':
-            rotset1,rotset2=self.interpolate(ages),other_rotset.interpolate(ages)
-        else:
-            rotset1,rotset2=other_rotset.interpolate(ages),self.interpolate(ages)
-        added=[]
-        for rot1,rot2 in zip(rotset1.rotations,rotset2.rotations):
-            added.append(rot1.addrot(rot2))
-        return FiniteRotationSet(added,rotset1.MovingPlate,rotset2.FixedPlate) 
-        
-    def newagemodel(self, timescale='CK95'):
-        return FiniteRotationSet([rotation.newagemodel(timescale) for rotation in self.rotations[1:]],self.FixedPlate,self.MovingPlate)  
+	"""
+	a collection of finite EulerRotations with common moving and fixed plates. Methods to easily list set parameters such as ages, chrons,
+	generate interpolated rotations and stage rotations
+	"""
+	def __init__(self, rotations,movingplate,fixedplate):
+		#where rotations is a list of EulerRotation objects
+		self.MovingPlate=movingplate
+		self.FixedPlate=fixedplate
+		self.rotations=rotations
+		#next bit makes interpolation easier: adds in a zero age rotation if none exists
+		if (self.rotations[0].EndAge==0 and self.rotations[0].StartAge==0)==False: #a possibly unneccesary more robust check
+			newrot=copy.deepcopy(rotations[0]) #creates new rather than referenced copy
+			newrot.EndAge=0.
+			newrot.StartAge=0.
+			newrot.EndChron='None'
+			newrot.RotPars.RotAng=0.
+			self.rotations.insert(0,newrot)
+		self.N=len(rotations)
+		
+	def invert(self, inverting='plate'):
+		"""
+		returns an inverted rotationset by sequentially calling the invert method on each rotation
+		By default will also invert the plate codes, set second argument to 'time'
+		to invert starting and ending ages for rotation instead.
+		"""
+		return FiniteRotationSet([rotation.invert(inverting) for rotation in self.rotations],self.FixedPlate,self.MovingPlate)
+		
+	def interpolate(self, ages):
+		""" 
+		Returns a rotation set of interpolated poles and covariances, for specified list of target ages. 
+		Searches for the two bracketing rotations for each target age, following method of Doubrovine and Tarduno (2008). 
+		Uses fortran routine ibfrlib0.3.f provided by Pavel Doubrovine, wrapped for python using f2py
+		compiled with python wrapped using f2py
+		"""
+		interpolated=[]
+		ages.sort() #just in case
+		for age in ages:
+			age=float(age) #also just in case
+			poleages=[item.EndAge for item in self.rotations]
+			if age>=min(poleages) and age<=max(poleages):
+				#check provided age is within range of given poles
+				match=[rotation for rotation in self.rotations if (rotation.EndAge==age)]
+				if match:
+					#checks there is a point in interpolating. If a rotation exists with the given age, can just use that.
+					interpolated.append(match[0])
+				else: 
+					#get bracketing rotations
+					A1=[rotation for rotation in self.rotations if (rotation.EndAge<age)][-1]
+					A2=[rotation for rotation in self.rotations if (rotation.EndAge>age)][0]
+					xi=(age-A1.EndAge)/(A2.EndAge-A1.EndAge)
+					#do the interpolation by calling finb2	   
+					newrot,newcovmat=rotkit_f.finb2(A1.RotPars.tolist(),A1.make_covmat(),A2.RotPars.tolist(),A2.make_covmat(),xi)
+					ndata=(A1.HellingerInfo.Points+A2.HellingerInfo.Points)/2 #not sure if this is justified but need something..
+					#this is admittedly a little clunky, but it does the job.
+					interpolated.append(EulerRotation(pd.Series([A1.MovingPlate,A1.FixedPlate,A1.StartChron,'None',0.,age,
+					newrot[0],newrot[1],newrot[2],
+					1.0,newcovmat[0,0],newcovmat[0,1],newcovmat[0,2],newcovmat[1,1],newcovmat[1,2],newcovmat[2,2],
+					ndata,A1.HellingerInfo.Segs,A1.HellingerInfo.Plates,A1.HellingerInfo.DOF,'Interpolated'],
+					index=['MovingPlate','FixedPlate','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
+					'RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])))
+		return FiniteRotationSet(interpolated,self.MovingPlate,self.FixedPlate)
+				  
+	def stagerots(self):
+		srots=[]
+		#get the stage rotations between each finite rotation in the RotationSet.
+		for rot1,rot2 in zip(self.rotations[:-1],self.rotations[1:]):  
+			srot=rotmat_to_pole(rot2.make_rotmat()*np.transpose(rot1.make_rotmat()))
+			#calculation of covariance matrix for stage rotation between A1 and A2 = A1*(cov2-cov1)
+			#from Appendix to Doubrovine & Tarduno 2008
+			cov_matrix_s=rot1.make_rotmat()*(rot2.make_covmat()-rot1.make_covmat())
+			#not sure that this is totally valid - may be better to just put in smallest number of points?
+			points=(rot1.HellingerInfo.Points+rot2.HellingerInfo.Points)/2
+			srots.append(EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,rot1.EndChron,rot2.EndChron,rot1.EndAge,rot2.EndAge,
+					srot[0],srot[1],srot[2],
+					1.0,cov_matrix_s[0,0],cov_matrix_s[0,1],cov_matrix_s[0,2],cov_matrix_s[1,1],cov_matrix_s[1,2],cov_matrix_s[2,2],
+					points,'NA','NA',10000,'Interpolated Stage Pole'],
+					index=['MovingPlate','FixedPlate','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
+					'RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])))	
+		return StageRotationSet(srots,self.MovingPlate,self.FixedPlate)
+		
+	def addrots(self,other_rotset,ages=[],sense='to'):
+		#adds this rotationset to another one at specified age steps: if no ages provided will interpolate to all finite rotation ages 
+		# Default sense is that you are adding 'to' other_rot, such that the fixed plate of other_rot is the fixed plate for the result.
+		# If sense is 'on' then the fixed plate of this rotation will be the fixed plate for the result.
+		if not ages:
+			ages=list(set(self.summary().EndAge.tolist()+other_rotset.summary().EndAge.tolist()))
+			ages.sort()
+		if sense=='to':
+			rotset1,rotset2=self.interpolate(ages),other_rotset.interpolate(ages)
+		else:
+			rotset1,rotset2=other_rotset.interpolate(ages),self.interpolate(ages)
+		added=[]
+		for rot1,rot2 in zip(rotset1.rotations,rotset2.rotations):
+			added.append(rot1.addrot(rot2))
+		return FiniteRotationSet(added,rotset1.MovingPlate,rotset2.FixedPlate) 
+		
+	def newagemodel(self, timescale='CK95'):
+		return FiniteRotationSet([rotation.newagemodel(timescale) for rotation in self.rotations[1:]],self.FixedPlate,self.MovingPlate)  
    
-    def summary(self):
-        return pd.DataFrame([[item.MovingPlate,item.FixedPlate,item.StartAge,item.EndAge,item.RotPars[0],item.RotPars[1],item.RotPars[2]] for item in self.rotations],
-                                columns=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])[1:] #so don't show zero rotations
-                
+	def summary(self):
+		return pd.DataFrame([[item.MovingPlate,item.FixedPlate,item.StartAge,item.EndAge,item.RotPars[0],item.RotPars[1],item.RotPars[2]] for item in self.rotations],
+								columns=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])[1:] #so don't show zero rotations
+				
 
 class StageRotationSet(object):
-    """
-    a collection of stage EulerRotations with common moving and fixed plates. Methods to easily list set parameters such as ages, chrons,
-    generate interpolated rotations and stage rotations
-    """
-    def __init__(self, rotations,movingplate,fixedplate):
-        #where rotations is a list of EulerRotation objects
-        #note unlike finite rotationset does not add in a zero rotation.
-        self.MovingPlate=movingplate
-        self.FixedPlate=fixedplate
-        self.rotations=rotations
-        self.N=len(rotations)
-        
-    def invert(self):
-        """
-        returns an inverted rotationset by sequentially calling the invert method on each rotation
-        AFAICT inversion is only meaningful in time for stage poles, so currently that is what it does
-        """
-        inverted=StageRotationSet([rotation.invert('time') for rotation in self.rotations],self.MovingPlate,self.FixedPlate)
-        # don't want zeroed rotation for stage poles - or do we?
-        # not sure if commented out line is not neccessary for when youngest rotation does not end at 0 Ma
-        #inverted.rotations=inverted.rotations[1:]
-        return inverted
-                          
-    def finiterots(self):
-        """
-        Adds the stage rotations sequentially to produce net/finite rotations.
-        Rotations must be in order.
-        """
-        finiterots=[self.rotations[0]]
-        for rotation in self.rotations[1:]:
-            finiterots.append(finiterots[-1].addrot(rotation))
-        return FiniteRotationSet(finiterots, self.MovingPlate,self.FixedPlate)
+	"""
+	a collection of stage EulerRotations with common moving and fixed plates. Methods to easily list set parameters such as ages, chrons,
+	generate interpolated rotations and stage rotations
+	"""
+	def __init__(self, rotations,movingplate,fixedplate):
+		#where rotations is a list of EulerRotation objects
+		#note unlike finite rotationset does not add in a zero rotation.
+		self.MovingPlate=movingplate
+		self.FixedPlate=fixedplate
+		self.rotations=rotations
+		self.N=len(rotations)
+		
+	def invert(self):
+		"""
+		returns an inverted rotationset by sequentially calling the invert method on each rotation
+		AFAICT inversion is only meaningful in time for stage poles, so currently that is what it does
+		"""
+		inverted=StageRotationSet([rotation.invert('time') for rotation in self.rotations],self.MovingPlate,self.FixedPlate)
+		# don't want zeroed rotation for stage poles - or do we?
+		# not sure if commented out line is not neccessary for when youngest rotation does not end at 0 Ma
+		#inverted.rotations=inverted.rotations[1:]
+		return inverted
+						  
+	def finiterots(self):
+		"""
+		Adds the stage rotations sequentially to produce net/finite rotations.
+		Rotations must be in order.
+		"""
+		finiterots=[self.rotations[0]]
+		for rotation in self.rotations[1:]:
+			finiterots.append(finiterots[-1].addrot(rotation))
+		return FiniteRotationSet(finiterots, self.MovingPlate,self.FixedPlate)
    
-    def summary(self):
-        return pd.DataFrame([[item.MovingPlate,item.FixedPlate,item.StartAge,item.EndAge,item.RotPars[0],item.RotPars[1],item.RotPars[2]] for item in self.rotations],
-                                columns=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])
-                                  
+	def summary(self):
+		return pd.DataFrame([[item.MovingPlate,item.FixedPlate,item.StartAge,item.EndAge,item.RotPars[0],item.RotPars[1],item.RotPars[2]] for item in self.rotations],
+								columns=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])
+								  
 class EulerRotation(object):
-    """
-    Euler rotation for objects on Earth's surface. At the moment it does not make a distinction between finite rotations
-    (where one of the age points is 0) and a stage rotation: this may change if different methods are required.
-    Attributes:
-        MovingPlate: tectonic plate code for moving plate
-        FixedPlate: tectonic plate code for fixed plate
-        StartAge: starting age of rotation (will normally be 0 for loaded finite rotations)
-        StartChron: magnetic chron for starting age ('None' if does not correspond to any chron due to e.g., interpolation)
-        EndAge: end age of rotation
-        EndChron: magnetic chron for end age ('None' if does not correspond to any chron due to e.g., interpolation)
-        RotPars: pandas Series with Latitude, Longitude and Rotation Angle
-        Covariances: pandas Series with kappahat and covariance values a,b,c,d,e,f
-        HellingerInfo: pandas Series with Points and Segments used for Hellinger fit, 2/3 Plate system, and corresponding degrees of freedom (DOF)
-        Source: Published source, or 'Calculated' if created by addition/interpolation etc.
-        PlotColor: assigned colour (defaults to black)
-    """
-    def __init__(self, rotation, plotcolor='black'):
-        """Return object
-        input is a pandas DataFrame row with neccessary parameters. Should probably try to make it fail gracefully if no covariances?
-        the getattr is a way of giving a default value if none is detected. So could potentially do something like that an give default covariances...
-        """ 
-        self.MovingPlate = rotation.MovingPlate
-        self.FixedPlate=rotation.FixedPlate
-        self.Timescale=getattr(rotation,'Timescale','Undefined') #potentially useful attribute to know...
-        self.StartAge=getattr(rotation,'StartAge',0)
-        self.EndAge=rotation.EndAge
-        self.StartChron=getattr(rotation,'StartChron','None')
-        self.EndChron=rotation.EndChron
-        self.RotPars=pd.Series([rotation.RotLat,rotation.RotLong,rotation.RotAng],index=['RotLat','RotLong','RotAng'])
-        self.Covariances=pd.Series([rotation.Kappahat,rotation.a,rotation.b,rotation.c,rotation.d,rotation.e,rotation.f],
-                                    index=['Kappahat','a','b','c','d','e','f'])
-        self.HellingerInfo=pd.Series([rotation.Points,rotation.Segs,rotation.Plates,rotation.DOF], index=['Points','Segs','Plates','DOF'])
-        self.Source=rotation.Source
-        self.PlotColor=plotcolor
-        self.PlotSymbolSize=12
-        self.PlotLevel=5
-        
-    def mapplot(self, PlotAxis=None, OverideCol=None):
-        """
-        NB: currently set up for Cartopy Geoaxes
-        Plots point on pre-existing plot:
-        - if no plot is assigned to PlotAxis, will plot to the currently active plot.
-        - Plot color will be self.PlotColor unless an OverideCol is defined. 
-        - Currently DOES NOT plot the confidence ellipse, because I need to work out how to do that...
-        """
-        if OverideCol==None: OverideCol=self.PlotColor
-        
-        if PlotAxis: ax=PlotAxis
-        else: ax=plt.gca()
-        ax.plot(self.RotPars.RotLong,self.RotPars.RotLat, marker='o',
-                ms=self.PlotSymbolSize, color=OverideCol, zorder=self.PlotLevel,
-                transform=ccrs.Geodetic())
+	"""
+	Euler rotation for objects on Earth's surface. At the moment it does not make a distinction between finite rotations
+	(where one of the age points is 0) and a stage rotation: this may change if different methods are required.
+	Attributes:
+		MovingPlate: tectonic plate code for moving plate
+		FixedPlate: tectonic plate code for fixed plate
+		StartAge: starting age of rotation (will normally be 0 for loaded finite rotations)
+		StartChron: magnetic chron for starting age ('None' if does not correspond to any chron due to e.g., interpolation)
+		EndAge: end age of rotation
+		EndChron: magnetic chron for end age ('None' if does not correspond to any chron due to e.g., interpolation)
+		RotPars: pandas Series with Latitude, Longitude and Rotation Angle
+		Covariances: pandas Series with kappahat and covariance values a,b,c,d,e,f
+		HellingerInfo: pandas Series with Points and Segments used for Hellinger fit, 2/3 Plate system, and corresponding degrees of freedom (DOF)
+		Source: Published source, or 'Calculated' if created by addition/interpolation etc.
+		PlotColor: assigned colour (defaults to black)
+	"""
+	def __init__(self, rotation, plotcolor='black'):
+		"""Return object
+		input is a pandas DataFrame row with neccessary parameters. Should probably try to make it fail gracefully if no covariances?
+		the getattr is a way of giving a default value if none is detected. So could potentially do something like that an give default covariances...
+		""" 
+		self.MovingPlate = rotation.MovingPlate
+		self.FixedPlate=rotation.FixedPlate
+		self.Timescale=getattr(rotation,'Timescale','Undefined') #potentially useful attribute to know...
+		self.StartAge=getattr(rotation,'StartAge',0)
+		self.EndAge=rotation.EndAge
+		self.StartChron=getattr(rotation,'StartChron','None')
+		self.EndChron=rotation.EndChron
+		self.RotPars=pd.Series([rotation.RotLat,rotation.RotLong,rotation.RotAng],index=['RotLat','RotLong','RotAng'])
+		self.Covariances=pd.Series([rotation.Kappahat,rotation.a,rotation.b,rotation.c,rotation.d,rotation.e,rotation.f],
+									index=['Kappahat','a','b','c','d','e','f'])
+		self.HellingerInfo=pd.Series([rotation.Points,rotation.Segs,rotation.Plates,rotation.DOF], index=['Points','Segs','Plates','DOF'])
+		self.Source=rotation.Source
+		self.PlotColor=plotcolor
+		self.PlotSymbolSize=12
+		self.PlotLevel=5
+		
+	def mapplot(self, PlotAxis=None, OverideCol=None):
+		"""
+		NB: currently set up for Cartopy Geoaxes
+		Plots point on pre-existing plot:
+		- if no plot is assigned to PlotAxis, will plot to the currently active plot.
+		- Plot color will be self.PlotColor unless an OverideCol is defined. 
+		- Currently DOES NOT plot the confidence ellipse, because I need to work out how to do that...
+		"""
+		if OverideCol==None: OverideCol=self.PlotColor
+		
+		if PlotAxis: ax=PlotAxis
+		else: ax=plt.gca()
+		ax.plot(self.RotPars.RotLong,self.RotPars.RotLat, marker='o',
+				ms=self.PlotSymbolSize, color=OverideCol, zorder=self.PlotLevel,
+				transform=ccrs.Geodetic())
 
-    def make_covmat(self):
-        return np.matrix([[self.Covariances.a,self.Covariances.b,self.Covariances.c],
-                            [self.Covariances.b,self.Covariances.d,self.Covariances.e],
-                            [self.Covariances.c,self.Covariances.e,self.Covariances.f]])
-                            
-    def make_rotmat(self):
-        lat,lon,ang=self.RotPars.RotLat*np.pi/180,self.RotPars.RotLong*np.pi/180,self.RotPars.RotAng*np.pi/180,
-        num=1-np.cos(ang)
-        px=np.cos(lat)*np.cos(lon)
-        py=np.cos(lat)*np.sin(lon)
-        pz=np.sin(lat)
-        return np.matrix([[(px*px*num )+ np.cos(ang),(px*py*num )-(pz*np.sin(ang)),(px*pz*num)+(py*np.sin(ang))],
-                    [(py*px*num)+(pz*np.sin(ang)),(py*py*num)+np.cos(ang),(py*pz*num)-(px*np.sin(ang))],
-                    [(px*pz*num)-(py*np.sin(ang)),(pz*py*num)+(px*np.sin(ang)),(pz*pz*num)+np.cos(ang)]])
+	def make_covmat(self):
+		return np.matrix([[self.Covariances.a,self.Covariances.b,self.Covariances.c],
+							[self.Covariances.b,self.Covariances.d,self.Covariances.e],
+							[self.Covariances.c,self.Covariances.e,self.Covariances.f]])
+							
+	def make_rotmat(self):
+		lat,lon,ang=self.RotPars.RotLat*np.pi/180,self.RotPars.RotLong*np.pi/180,self.RotPars.RotAng*np.pi/180,
+		num=1-np.cos(ang)
+		px=np.cos(lat)*np.cos(lon)
+		py=np.cos(lat)*np.sin(lon)
+		pz=np.sin(lat)
+		return np.matrix([[(px*px*num )+ np.cos(ang),(px*py*num )-(pz*np.sin(ang)),(px*pz*num)+(py*np.sin(ang))],
+					[(py*px*num)+(pz*np.sin(ang)),(py*py*num)+np.cos(ang),(py*pz*num)-(px*np.sin(ang))],
+					[(px*pz*num)-(py*np.sin(ang)),(pz*py*num)+(px*np.sin(ang)),(pz*pz*num)+np.cos(ang)]])
 
-    def invert(self, inverting='plate'):
-        """
-        Calculate the inverse of a rotation and its convariance matrix
-        By default will also invert the plate codes, set second argument to 'time'
-        to invert starting and ending ages for rotation instead.
-        """
-        # calculate inverse rotation and its covariance matrix - adapted from invrot.f (original November 3 1988 J-Y R)
-        # a=b**t; cova=b*covb*(b**t) where b, covb =rotation and covariance matrices of original rotation, and a is the transpose of b
-        invrot=EulerRotation(self.details())
-        invrot.RotPars.RotAng=-invrot.RotPars.RotAng
-        rot_matrix=invrot.make_rotmat()
-        cov_matrix=invrot.make_covmat()
-        t_rot_matrix=np.transpose(rot_matrix)
-        inv_cov=rot_matrix*cov_matrix*t_rot_matrix
-        invrot.Covariances=pd.Series([invrot.Covariances.Kappahat,inv_cov[0,0],inv_cov[0,1],inv_cov[0,2],inv_cov[1,1],inv_cov[1,2],inv_cov[2,2]],
-                                    index=['Kappahat','a','b','c','d','e','f'])
-        if inverting=='time': 
-            invrot.StartAge=self.EndAge
-            invrot.EndAge=self.StartAge
-            invrot.StartChron=self.EndChron
-            invrot.EndChron=self.StartChron
-        else: 
-            invrot.FixedPlate=self.MovingPlate
-            invrot.MovingPlate=self.FixedPlate
-        return invrot
-        
-    def half_rotation(self):
-        """
-        Return a copy of the rotation with the rotation angle halved
-        (Useful for ridge reconstructions, although be careful with sense of rotation)
-        """        
-        half_rot=EulerRotation(self.details())
-        half_rot.RotPars.RotAng=half_rot.RotPars.RotAng/2.
-        return half_rot
-        
-    def antipode(self):
-        """
-        return antipodal rotation (i.e on other side of planet, sense of rotation reversed)
-        """
-        antipodal=EulerRotation(self.details())
-        antipodal.RotPars.RotLat=-antipodal.RotPars.RotLat
-        if antipodal.RotPars.RotLong<=180.: 
-            antipodal.RotPars.RotLong=antipodal.RotPars.RotLong+180.
-        else:
-            antipodal.RotPars.RotLong=antipodal.RotPars.RotLong-180
-        antipodal.RotPars.RotAng=-antipodal.RotPars.RotAng
-        return antipodal
-    
-    def addrot(self,other_rot,sense='to'):
-        """
-        Adds this EulerRotation to EulerRotation other_rot
-        If sense='to' (default):
-            Fixed plate of other_rot is the fixed plate for the result.
-        If sense='on':
-            Fixed plate of this rotation will be the fixed plate for the result.
-            (which has some applications when adding stage rotations?)
-        
-        Rotation vector addition adapted from fortran code provided by David Rowley, 
-        based on vector addition as described in Cox and Hart p. 232 and 233
-        
-        Treatment of rotation covariance per Chang 1990 - covariance of combined rotations 
-        A and B C=AB, with covariance cova and covb: covc ~= B(t)*covA*B+covB
-        a linear approximation that assumes rotations *associated with the errors* 
-        are small enough to be treated as infintesimal so can be added as vectors.
-        Condition for this that det(cova) and det (covb) <<1, which seems to be more than 
-        met with typical rotation pole covariances.
-        Code and notes adapted from addrot.f  ======  November 3 1988 J-Y R ======= MODIFIED OCTOBER 14, 1991
+	def invert(self, inverting='plate'):
+		"""
+		Calculate the inverse of a rotation and its convariance matrix
+		By default will also invert the plate codes, set second argument to 'time'
+		to invert starting and ending ages for rotation instead.
+		"""
+		# calculate inverse rotation and its covariance matrix - adapted from invrot.f (original November 3 1988 J-Y R)
+		# a=b**t; cova=b*covb*(b**t) where b, covb =rotation and covariance matrices of original rotation, and a is the transpose of b
+		invrot=EulerRotation(self.details())
+		invrot.RotPars.RotAng=-invrot.RotPars.RotAng
+		rot_matrix=invrot.make_rotmat()
+		cov_matrix=invrot.make_covmat()
+		t_rot_matrix=np.transpose(rot_matrix)
+		inv_cov=rot_matrix*cov_matrix*t_rot_matrix
+		invrot.Covariances=pd.Series([invrot.Covariances.Kappahat,inv_cov[0,0],inv_cov[0,1],inv_cov[0,2],inv_cov[1,1],inv_cov[1,2],inv_cov[2,2]],
+									index=['Kappahat','a','b','c','d','e','f'])
+		if inverting=='time': 
+			invrot.StartAge=self.EndAge
+			invrot.EndAge=self.StartAge
+			invrot.StartChron=self.EndChron
+			invrot.EndChron=self.StartChron
+		else: 
+			invrot.FixedPlate=self.MovingPlate
+			invrot.MovingPlate=self.FixedPlate
+		return invrot
+		
+	def half_rotation(self):
+		"""
+		Return a copy of the rotation with the rotation angle halved
+		(Useful for ridge reconstructions, although be careful with sense of rotation)
+		"""		
+		half_rot=EulerRotation(self.details())
+		half_rot.RotPars.RotAng=half_rot.RotPars.RotAng/2.
+		return half_rot
+		
+	def antipode(self):
+		"""
+		return antipodal rotation (i.e on other side of planet, sense of rotation reversed)
+		"""
+		antipodal=EulerRotation(self.details())
+		antipodal.RotPars.RotLat=-antipodal.RotPars.RotLat
+		if antipodal.RotPars.RotLong<=180.: 
+			antipodal.RotPars.RotLong=antipodal.RotPars.RotLong+180.
+		else:
+			antipodal.RotPars.RotLong=antipodal.RotPars.RotLong-180
+		antipodal.RotPars.RotAng=-antipodal.RotPars.RotAng
+		return antipodal
+	
+	def addrot(self,other_rot,sense='to'):
+		"""
+		Adds this EulerRotation to EulerRotation other_rot
+		If sense='to' (default):
+			Fixed plate of other_rot is the fixed plate for the result.
+		If sense='on':
+			Fixed plate of this rotation will be the fixed plate for the result.
+			(which has some applications when adding stage rotations?)
+		
+		Rotation vector addition adapted from fortran code provided by David Rowley, 
+		based on vector addition as described in Cox and Hart p. 232 and 233
+		
+		Treatment of rotation covariance per Chang 1990 - covariance of combined rotations 
+		A and B C=AB, with covariance cova and covb: covc ~= B(t)*covA*B+covB
+		a linear approximation that assumes rotations *associated with the errors* 
+		are small enough to be treated as infintesimal so can be added as vectors.
+		Condition for this that det(cova) and det (covb) <<1, which seems to be more than 
+		met with typical rotation pole covariances.
+		Code and notes adapted from addrot.f  ======  November 3 1988 J-Y R ======= MODIFIED OCTOBER 14, 1991
   
-        __TOD__ much of code dealing with kappa at low DOF not implemented
-        """
-        
-        if sense=='to':
-            rot1=EulerRotation(self.details())
-            rot2=other_rot
-        else:
-            rot1=other_rot
-            rot2=EulerRotation(self.details())
-         
-        #1. Check if rotation angles are 0    
-        if rot1.RotPars[2]==0 and rot2.RotPars[2]==0: newRotPars=[0,0,0]
-        #2. Check if poles are identical (sum to zero)
-        elif -rot1.RotPars[2]==rot2.RotPars[2] and rot1.RotPars[0]==rot2.RotPars[0] and rot1.RotPars[1]==rot2.RotPars[1]: newRotPars=[rot1[0],rot1[1],0]
-        elif -rot1.RotPars[2]==rot2.RotPars[2] and rot1.RotPars[0]==-rot2.RotPars[0] and rot1.RotPars[1]==rot2.RotPars[1]+180: newRotPars=[rot1[0],rot1[1],0]
-        elif -rot1.RotPars[2]==rot2.RotPars[2] and rot1.RotPars[0]==-rot2.RotPars[0] and rot1.RotPars[1]==rot2.RotPars[1]-180: newRotPars=[rot1[0],rot1[1],0]
-        else: newRotPars=rotmat_to_pole(rot2.make_rotmat()*rot1.make_rotmat())
-        
-        #now to deal with covariances. Currently, the kappa estimation when DOF<50 for one or both kappahat is not implemented.
-        new_covmat=(np.transpose(rot2.make_rotmat())*(rot2.make_covmat()/rot2.Covariances.Kappahat)
-                                *rot2.make_rotmat())+(rot1.make_covmat()/rot1.Covariances.Kappahat)
-        newKappa=1
-        newDOF=10000
-        
-        return EulerRotation(pd.Series([rot1.MovingPlate,rot2.FixedPlate,self.Timescale,rot1.StartChron,rot2.EndChron,rot1.StartAge,rot2.EndAge,
-                    newRotPars[0],newRotPars[1],newRotPars[2],
-                    newKappa,new_covmat[0,0],new_covmat[0,1],new_covmat[0,2],new_covmat[1,1],new_covmat[1,2],new_covmat[2,2],
-                    rot1.HellingerInfo.Points+rot2.HellingerInfo.Points,'NA','NA',newDOF,'Calculated'],
-                    index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
-                    'RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))             
-    
-    def rotate(self,rotation):
-        """
-        Rotates rotation pole by EulerRotation rotation (i.e. into a different reference frame)
-        Most relevent for stage rotations: makes the FixedPlate/MovingPlate a bit tricky potentially.
-        """ 
-        result=rotkit_f.rotatepts(np.array([[self.RotPars.RotLat,self.RotPars.RotLong]]),
-                np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
-        return EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,self.Timescale,self.StartChron,self.EndChron,self.StartAge,self.EndAge,result[:,0][0],result[:,1][0],self.RotPars[2],
-                        self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
-                        self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
-                            index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
-                            'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))
-    
-    def details(self):
-        """
-        This outputs the rotation parameters in a form that can be used to create a new EuleRotation
-        (useful for the copy with modification functions half_rot() and antipode() )
-        """
-        return pd.Series([self.MovingPlate,self.FixedPlate,self.Timescale,self.StartChron,self.EndChron,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
-                        self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
-                        self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
-                            index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
-                            'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])
+		__TOD__ much of code dealing with kappa at low DOF not implemented
+		"""
+		
+		if sense=='to':
+			rot1=EulerRotation(self.details())
+			rot2=other_rot
+		else:
+			rot1=other_rot
+			rot2=EulerRotation(self.details())
+		 
+		#1. Check if rotation angles are 0	
+		if rot1.RotPars[2]==0 and rot2.RotPars[2]==0: newRotPars=[0,0,0]
+		#2. Check if poles are identical (sum to zero)
+		elif -rot1.RotPars[2]==rot2.RotPars[2] and rot1.RotPars[0]==rot2.RotPars[0] and rot1.RotPars[1]==rot2.RotPars[1]: newRotPars=[rot1[0],rot1[1],0]
+		elif -rot1.RotPars[2]==rot2.RotPars[2] and rot1.RotPars[0]==-rot2.RotPars[0] and rot1.RotPars[1]==rot2.RotPars[1]+180: newRotPars=[rot1[0],rot1[1],0]
+		elif -rot1.RotPars[2]==rot2.RotPars[2] and rot1.RotPars[0]==-rot2.RotPars[0] and rot1.RotPars[1]==rot2.RotPars[1]-180: newRotPars=[rot1[0],rot1[1],0]
+		else: newRotPars=rotmat_to_pole(rot2.make_rotmat()*rot1.make_rotmat())
+		
+		#now to deal with covariances. Currently, the kappa estimation when DOF<50 for one or both kappahat is not implemented.
+		new_covmat=(np.transpose(rot2.make_rotmat())*(rot2.make_covmat()/rot2.Covariances.Kappahat)
+								*rot2.make_rotmat())+(rot1.make_covmat()/rot1.Covariances.Kappahat)
+		newKappa=1
+		newDOF=10000
+		
+		return EulerRotation(pd.Series([rot1.MovingPlate,rot2.FixedPlate,self.Timescale,rot1.StartChron,rot2.EndChron,rot1.StartAge,rot2.EndAge,
+					newRotPars[0],newRotPars[1],newRotPars[2],
+					newKappa,new_covmat[0,0],new_covmat[0,1],new_covmat[0,2],new_covmat[1,1],new_covmat[1,2],new_covmat[2,2],
+					rot1.HellingerInfo.Points+rot2.HellingerInfo.Points,'NA','NA',newDOF,'Calculated'],
+					index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong',
+					'RotAng','Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))			 
+	
+	def rotate(self,rotation):
+		"""
+		Rotates rotation pole by EulerRotation rotation (i.e. into a different reference frame)
+		Most relevent for stage rotations: makes the FixedPlate/MovingPlate a bit tricky potentially.
+		""" 
+		result=rotkit_f.rotatepts(np.array([[self.RotPars.RotLat,self.RotPars.RotLong]]),
+				np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
+		return EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,self.Timescale,self.StartChron,self.EndChron,self.StartAge,self.EndAge,result[:,0][0],result[:,1][0],self.RotPars[2],
+						self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
+						self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
+							index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
+							'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))
+	
+	def details(self):
+		"""
+		This outputs the rotation parameters in a form that can be used to create a new EuleRotation
+		(useful for the copy with modification functions half_rot() and antipode() )
+		"""
+		return pd.Series([self.MovingPlate,self.FixedPlate,self.Timescale,self.StartChron,self.EndChron,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
+						self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
+						self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
+							index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
+							'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source'])
 
-    def newagemodel(self, timescale='CK95'):
-        """
-        allows polarity timescale switching. Defaults to CK95
-        """
-        if self.EndChron != 'None': NewEndAge=get_chron_age(self.EndChron, timescale)
-        else: NewEndAge=self.EndAge
-        #hopefully this will work for stage rotations where StartChron is specified
-        if self.StartChron != 'None': NewStartAge=get_chron_age(self.StartChron, timescale)
-        else: NewStartAge=self.StartAge
-        
-        return EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,timescale,self.StartChron,self.EndChron,NewStartAge,NewEndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
-                        self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
-                        self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
-                            index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
-                            'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))
-        
-                            
-    def summary(self):
-        return pd.Series([self.MovingPlate,self.FixedPlate,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2]],
-                            index=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])   
+	def newagemodel(self, timescale='CK95'):
+		"""
+		allows polarity timescale switching. Defaults to CK95
+		"""
+		if self.EndChron != 'None': NewEndAge=get_chron_age(self.EndChron, timescale)
+		else: NewEndAge=self.EndAge
+		#hopefully this will work for stage rotations where StartChron is specified
+		if self.StartChron != 'None': NewStartAge=get_chron_age(self.StartChron, timescale)
+		else: NewStartAge=self.StartAge
+		
+		return EulerRotation(pd.Series([self.MovingPlate,self.FixedPlate,timescale,self.StartChron,self.EndChron,NewStartAge,NewEndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2],
+						self.Covariances.Kappahat,self.Covariances.a,self.Covariances.b,self.Covariances.c,self.Covariances.d,self.Covariances.e,self.Covariances.f,
+						self.HellingerInfo.Points,self.HellingerInfo.Segs,self.HellingerInfo.Plates,self.HellingerInfo.DOF,self.Source],
+							index=['MovingPlate','FixedPlate','Timescale','StartChron','EndChron','StartAge','EndAge','RotLat','RotLong','RotAng',
+							'Kappahat','a','b','c','d','e','f','Points','Segs','Plates','DOF','Source']))
+		
+							
+	def summary(self):
+		return pd.Series([self.MovingPlate,self.FixedPlate,self.StartAge,self.EndAge,self.RotPars[0],self.RotPars[1],self.RotPars[2]],
+							index=['MovingPlate','FixedPlate','StartAge','EndAge','RotLat','RotLong','RotAng'])   
 
 class Point(object):
-    """ Base Class for a point that can be acted on by rotations
-    
-        Attributes:
-        PointName: string describing feature
-        PlateCode: tectonic plate code on which point(s) are located
-        LocPars: pandas Series with Latitude and Longitude, plus rotation error ellipse parameters
-        FeatureAge: age of feature
-        ReconstructionAge: age that current set of points has been reconstructed at
-        PlotColor: assigned colour
-        PlotLevel: plot level (defaults to 5)
-    """    
-    def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=12):
-        """Return object
-        PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
-        optionally MaxError,MinError,MaxBearing, otherwise 0 by default
-        """ 
-        self.PointName = PointPars.Name
-        self.PlateCode=PointPars.PlateCode
-        #not sure how much, but information about reference frame could be useful
-        self.ReferencePlate=PointPars.PlateCode
-        self.FeatureAge=PointPars.FeatureAge
-        self.ReconstructionAge=PointPars.ReconstructionAge
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
-        self.PlotSymbolSize=PlotSymbolSize
-        #if input does not contain rotation error parameters, creates empty columns 
-        if not 'MaxError' in PointPars:
-            self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,0.,0.,0.],index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
-        else:
-            self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,PointPars.MaxError,PointPars.MinError,PointPars.MaxBearing]
-                                        ,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
+	""" Base Class for a point that can be acted on by rotations
+	
+		Attributes:
+		PointName: string describing feature
+		PlateCode: tectonic plate code on which point(s) are located
+		LocPars: pandas Series with Latitude and Longitude, plus rotation error ellipse parameters
+		FeatureAge: age of feature
+		ReconstructionAge: age that current set of points has been reconstructed at
+		PlotColor: assigned colour
+		PlotLevel: plot level (defaults to 5)
+	"""	
+	def __init__(self, PointPars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=12):
+		"""Return object
+		PointPars should be a Series/DataFrame row with Name,PlateCode,Lat,Lon,FeatureAge,ReconstructionAge;
+		optionally MaxError,MinError,MaxBearing, otherwise 0 by default
+		""" 
+		self.PointName = PointPars.Name
+		self.PlateCode=PointPars.PlateCode
+		#not sure how much, but information about reference frame could be useful
+		self.ReferencePlate=PointPars.PlateCode
+		self.FeatureAge=PointPars.FeatureAge
+		self.ReconstructionAge=PointPars.ReconstructionAge
+		self.PlotColor=PlotColor
+		self.PlotLevel=PlotLevel
+		self.PlotSymbolSize=PlotSymbolSize
+		#if input does not contain rotation error parameters, creates empty columns 
+		if not 'MaxError' in PointPars:
+			self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,0.,0.,0.],index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
+		else:
+			self.LocPars=pd.Series([PointPars.Lat,PointPars.Lon,PointPars.MaxError,PointPars.MinError,PointPars.MaxBearing]
+										,index=['PointLat','PointLong','MaxError','MinError','MaxBearing'])
 
-    
-    def mapplot(self, PlotAxis=None, Ellipses=True, OverideCol=None):
-        """
-        NB: currently set up for Cartopy Geoaxes
-        Plots point on pre-existing plot:
-        - if no plot is assigned to PlotAxis, will plot to the currently active plot.
-        - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
-        - Plot color will be self.PlotColor unless an OverideCol is defined.       
-        """
-        if OverideCol==None: OverideCol=self.PlotColor
-        
-        if PlotAxis: ax=PlotAxis
-        else: ax=plt.gca()
-        ax.plot(self.LocPars.PointLong,self.LocPars.PointLat, marker='o',
-                ms=self.PlotSymbolSize, color=OverideCol, zorder=self.PlotLevel,
-                transform=ccrs.Geodetic())
-        
-        if Ellipses==True and self.LocPars.MaxError>0.: 
-            ellipse_coords=ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing)
-            ax.plot(ellipse_coords[1],ellipse_coords[0],  transform=ccrs.PlateCarree(), color=OverideCol, zorder=self.PlotLevel-1)
-            #ax.add_patch(ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
-            #            facecolor='none', edgecolor=OverideCol, zorder=self.PlotLevel-1))
+	
+	def mapplot(self, PlotAxis=None, Ellipses=True, OverideCol=None):
+		"""
+		NB: currently set up for Cartopy Geoaxes
+		Plots point on pre-existing plot:
+		- if no plot is assigned to PlotAxis, will plot to the currently active plot.
+		- if Ellipses=True, will plot the associated error ellipse (if an error is defined)
+		- Plot color will be self.PlotColor unless an OverideCol is defined.	   
+		"""
+		if OverideCol==None: OverideCol=self.PlotColor
+		
+		if PlotAxis: ax=PlotAxis
+		else: ax=plt.gca()
+		ax.plot(self.LocPars.PointLong,self.LocPars.PointLat, marker='o',
+				ms=self.PlotSymbolSize, color=OverideCol, zorder=self.PlotLevel,
+				transform=ccrs.Geodetic())
+		
+		if Ellipses==True and self.LocPars.MaxError>0.: 
+			ellipse_coords=ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing)
+			ax.plot(ellipse_coords[1],ellipse_coords[0],  transform=ccrs.PlateCarree(), color=OverideCol, zorder=self.PlotLevel-1)
+			#ax.add_patch(ellipse_pars(self.LocPars.PointLong, self.LocPars.PointLat, self.LocPars.MaxError,self.LocPars.MinError,self.LocPars.MaxBearing,
+			#			facecolor='none', edgecolor=OverideCol, zorder=self.PlotLevel-1))
 
-    def rotate(self,rotation):
-        """
-        Rotates pointset by rotation EulerRotation and returns a new point with the reconstructed coordinates
-        
-        The rotation itself calls a wrapped fortran routine, i.e. you need to have compiled Rotkit_f on 
-        your machine for this to work.
-        """ 
-        #intially tried to make a copy and modify it, but it seems you can call the object type to initialise a new version
-        result=rotkit_f.rotatepts(np.array([[self.LocPars.PointLat,self.LocPars.PointLong]]),
-                np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
-                
-        rotated=Point(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,rotation.EndAge,result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0]],
-                                index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']))
-        rotated.ReferencePlate=rotation.FixedPlate
-        return rotated
-        
-    def reconstruct(self,age,refplate,rotmodel, invert=False):
-        """
-        A wrapper to .rotate() that finds the desired finite EulerRotation 
-        (of self.PlateCode wrt refplate, from present to age) in EulerRotationModel 
-        rotmodel, then returns the reconstructed point.
-        
-        If invert is True, then the refplate becomes the moving plate. 
-        """
-        #first check if the reference plate is this plate.
-        if refplate==self.PlateCode:
-            return self
-        #another place where adding the zero rotation could trip you up.
-        elif invert==True: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1].invert())
-        else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
-            
-    def flowline(self,ages,refplate,rotmodel,SetName='Flowline',PlotColor='grey',PlotLevel=5, invert=False):
-        """
-        Generates a FlowLine object that charts motion of point relative to the 
-        reference plate for the specified age points.
-        
-        If invert is True, then the motion is of the refplate relative to the point; useful for generating hotspot tracks
-        and APWPs
-        """
-        
-        if invert==True: ref=self.PlateCode 
-        else: ref=refplate # inverting rotations has possible consequences
-        return Flowline([self.reconstruct(age,refplate,rotmodel,invert) for age in ages],ref,SetName,PlotColor,PlotLevel)
+	def rotate(self,rotation):
+		"""
+		Rotates pointset by rotation EulerRotation and returns a new point with the reconstructed coordinates
+		
+		The rotation itself calls a wrapped fortran routine, i.e. you need to have compiled Rotkit_f on 
+		your machine for this to work.
+		""" 
+		#intially tried to make a copy and modify it, but it seems you can call the object type to initialise a new version
+		result=rotkit_f.rotatepts(np.array([[self.LocPars.PointLat,self.LocPars.PointLong]]),
+				np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
+				
+		rotated=Point(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,rotation.EndAge,result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0]],
+								index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing']))
+		rotated.ReferencePlate=rotation.FixedPlate
+		return rotated
+		
+	def reconstruct(self,age,refplate,rotmodel, invert=False):
+		"""
+		A wrapper to .rotate() that finds the desired finite EulerRotation 
+		(of self.PlateCode wrt refplate, from present to age) in EulerRotationModel 
+		rotmodel, then returns the reconstructed point.
+		
+		If invert is True, then the refplate becomes the moving plate. 
+		"""
+		#first check if the reference plate is this plate.
+		if refplate==self.PlateCode:
+			return self
+		#another place where adding the zero rotation could trip you up.
+		elif invert==True: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1].invert())
+		else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
+			
+	def flowline(self,ages,refplate,rotmodel,SetName='Flowline',PlotColor='grey',PlotLevel=5, invert=False):
+		"""
+		Generates a FlowLine object that charts motion of point relative to the 
+		reference plate for the specified age points.
+		
+		If invert is True, then the motion is of the refplate relative to the point; useful for generating hotspot tracks
+		and APWPs
+		"""
+		
+		if invert==True: ref=self.PlateCode 
+		else: ref=refplate # inverting rotations has possible consequences
+		return Flowline([self.reconstruct(age,refplate,rotmodel,invert) for age in ages],ref,SetName,PlotColor,PlotLevel)
 
-    def resample(self,trials=1000):
-        """
-        Generates a distribution of trials points resampled within the defined 
-        uncertainty ellipse.
-        """
-        #no error=no uncertainty
-        if self.LocPars.MaxError==0: return [[self.LocPars.PointLat,self.LocPars.PointLong] for _ in range(trials)]
-        else:
-            #Spatial correction according to Demarest (1983)
-            ell_sampling=np.column_stack((np.random.normal(0,self.LocPars.MaxError*(0.8/1.96),trials),np.random.normal(0,self.LocPars.MinError*(0.8/1.96),trials)))*np.pi/180.
-            ang_correction=np.repeat(0.,trials)
-            np.put(ang_correction, np.where((ell_sampling[:,0]<0) & (ell_sampling[:,1]>=0)), 1.)
-            np.put(ang_correction, np.where((ell_sampling[:,0]<0) & (ell_sampling[:,1]<0)), 2.)
-            np.put(ang_correction, np.where((ell_sampling[:,0]>=0) & (ell_sampling[:,1]<0)), 1.)
-            
-            R=np.arccos(np.cos(ell_sampling[:,0])*np.cos(ell_sampling[:,1]))
-            #floating point error sometimes means tries to take arcsin>1 or arcsin<-1: combo of np.minimum and np.maximum prevents this by substituting 1/-1 if it happens.
-            A=np.arcsin(np.minimum(1,np.maximum((np.sin(ell_sampling[:,1])/np.sin(R)),-1)))+(ang_correction*np.pi)+(self.LocPars.MaxBearing*np.pi/180.)
-        
-            return np.apply_along_axis(map_point,1,np.column_stack((A*180/np.pi,R*180/np.pi)),self.LocPars.PointLat,self.LocPars.PointLong).tolist()
+	def resample(self,trials=1000):
+		"""
+		Generates a distribution of trials points resampled within the defined 
+		uncertainty ellipse.
+		"""
+		#no error=no uncertainty
+		if self.LocPars.MaxError==0: return [[self.LocPars.PointLat,self.LocPars.PointLong] for _ in range(trials)]
+		else:
+			#Spatial correction according to Demarest (1983)
+			ell_sampling=np.column_stack((np.random.normal(0,self.LocPars.MaxError*(0.8/1.96),trials),np.random.normal(0,self.LocPars.MinError*(0.8/1.96),trials)))*np.pi/180.
+			ang_correction=np.repeat(0.,trials)
+			np.put(ang_correction, np.where((ell_sampling[:,0]<0) & (ell_sampling[:,1]>=0)), 1.)
+			np.put(ang_correction, np.where((ell_sampling[:,0]<0) & (ell_sampling[:,1]<0)), 2.)
+			np.put(ang_correction, np.where((ell_sampling[:,0]>=0) & (ell_sampling[:,1]<0)), 1.)
+			
+			R=np.arccos(np.cos(ell_sampling[:,0])*np.cos(ell_sampling[:,1]))
+			#floating point error sometimes means tries to take arcsin>1 or arcsin<-1: combo of np.minimum and np.maximum prevents this by substituting 1/-1 if it happens.
+			A=np.arcsin(np.minimum(1,np.maximum((np.sin(ell_sampling[:,1])/np.sin(R)),-1)))+(ang_correction*np.pi)+(self.LocPars.MaxBearing*np.pi/180.)
+		
+			return np.apply_along_axis(map_point,1,np.column_stack((A*180/np.pi,R*180/np.pi)),self.LocPars.PointLat,self.LocPars.PointLong).tolist()
 
-    def ang_dist(self,otherpoint,degrees=True):
-        """
-        Returns angular distance in degrees or radians (if degrees set to False) 
-        of this point to Point object otherpoint. 
-        """
-        return sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong, degrees=degrees)
+	def ang_dist(self,otherpoint,degrees=True):
+		"""
+		Returns angular distance in degrees or radians (if degrees set to False) 
+		of this point to Point object otherpoint. 
+		"""
+		return sphere_ang_dist(self.LocPars.PointLat,self.LocPars.PointLong,otherpoint.LocPars.PointLat,otherpoint.LocPars.PointLong, degrees=degrees)
 
-    def common_dir_test(self,otherpoint,trials=1000):
-        """
-        Compares position with otherpoint (another Point object), and tests if their angular separation
-        is statistically significant or not by resampling within their associated 
-        uncertainty ellipses. Trials is the number of samples in the comparison population. 
-        
-        Currently returns a list with 1/0 for pass/fail and angular separation.
-        Based on the bootstrap test for common direction developed by Tauxe
-        """
-        dist1=np.array([dir2cart(sample)[0] for sample in self.resample(trials)])
-        dist2=np.array([dir2cart(sample)[0] for sample in otherpoint.resample(trials)])
-        if (np.percentile(dist1[:,0],2.5) <= np.percentile(dist2[:,0],97.5) 
-            and np.percentile(dist2[:,0],2.5) <= np.percentile(dist1[:,0],97.5)) and (
-            np.percentile(dist1[:,1],2.5) <= np.percentile(dist2[:,1],97.5) and 
-            np.percentile(dist2[:,1],2.5) <= np.percentile(dist1[:,1],97.5)) and (
-            np.percentile(dist1[:,2],2.5) <= np.percentile(dist2[:,2],97.5) and 
-            np.percentile(dist2[:,2],2.5) <= np.percentile(dist1[:,2],97.5)) : return [0, self.ang_dist(otherpoint)]
-        else: return [1, self.ang_dist(otherpoint)]
+	def common_dir_test(self,otherpoint,trials=1000):
+		"""
+		Compares position with otherpoint (another Point object), and tests if their angular separation
+		is statistically significant or not by resampling within their associated 
+		uncertainty ellipses. Trials is the number of samples in the comparison population. 
+		
+		Currently returns a list with 1/0 for pass/fail and angular separation.
+		Based on the bootstrap test for common direction developed by Tauxe
+		"""
+		dist1=np.array([dir2cart(sample)[0] for sample in self.resample(trials)])
+		dist2=np.array([dir2cart(sample)[0] for sample in otherpoint.resample(trials)])
+		if (np.percentile(dist1[:,0],2.5) <= np.percentile(dist2[:,0],97.5) 
+			and np.percentile(dist2[:,0],2.5) <= np.percentile(dist1[:,0],97.5)) and (
+			np.percentile(dist1[:,1],2.5) <= np.percentile(dist2[:,1],97.5) and 
+			np.percentile(dist2[:,1],2.5) <= np.percentile(dist1[:,1],97.5)) and (
+			np.percentile(dist1[:,2],2.5) <= np.percentile(dist2[:,2],97.5) and 
+			np.percentile(dist2[:,2],2.5) <= np.percentile(dist1[:,2],97.5)) : return [0, self.ang_dist(otherpoint)]
+		else: return [1, self.ang_dist(otherpoint)]
 
-    def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0):
-        """
-        calculates the magnitude and direction of the plate motion vector for this locality relative to the specified
-        reference plate. By default, it will calculate the most recent interval (last 0.78 Ma of motion).
-        outputs a bearing and a rate in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
-        set fixed=1 to show vector for refplate relative to point 
-        """
-        #velocity of point on Earth's surface=cross product of Euler vector (omega) and position vector (r)
-        #N-S component of v vNS = a*|rotrate|*cos(polelat)*sin(sitelong-polelong)
-        #E-W component of v vEW =  a*|rotrate|* [cos(sitelat)*sin(polelat)-sin(sitelat)*cos(polelat)*cos(sitelong-polelong)]
-        #where a=Earth radius
-        #rate of motion = sqrt (vNS^2+vEW^2)
-        #azimuth = 90-atan[vNS/vEW]
+	def motion_vector(self,refplate,rotmodel,startage=0.78,endage=0,fixed=0):
+		"""
+		calculates the magnitude and direction of the plate motion vector for this locality relative to the specified
+		reference plate. By default, it will calculate the most recent interval (last 0.78 Ma of motion).
+		outputs a bearing and a rate in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
+		set fixed=1 to show vector for refplate relative to point 
+		"""
+		#velocity of point on Earth's surface=cross product of Euler vector (omega) and position vector (r)
+		#N-S component of v vNS = a*|rotrate|*cos(polelat)*sin(sitelong-polelong)
+		#E-W component of v vEW =  a*|rotrate|* [cos(sitelat)*sin(polelat)-sin(sitelat)*cos(polelat)*cos(sitelong-polelong)]
+		#where a=Earth radius
+		#rate of motion = sqrt (vNS^2+vEW^2)
+		#azimuth = 90-atan[vNS/vEW]
 
-        #get Lat and Long of starting position of point in relevant reference frame
-        #if start age or endage is 0, causes problems... (because if not there is an additional 0 Ma rotation)
-        if startage==0 or endage==0: rotindex=0
-        else: rotindex=1
-        
-        reconstruction_rots=rotmodel.get_rots(self.PlateCode,refplate,[startage,endage])
-        latlong=self.rotate(reconstruction_rots.rotations[rotindex]).LocPars   
-        pointlat=latlong.PointLat*np.pi/180
-        pointlong=latlong.PointLong*np.pi/180
-        
-        #get the stage rotation over the relevant interval, and invert if going forward in time (normally will be)
-        stagerot=reconstruction_rots.stagerots().rotations[rotindex]
-        if startage>endage:
-            stagerot=stagerot.invert('time')
-        if fixed==1:
-            stagerot=stagerot.invert()        
-        rotlat=stagerot.RotPars.RotLat*np.pi/180
-        rotlong=stagerot.RotPars.RotLong*np.pi/180
-        rotrate=stagerot.RotPars.RotAng*np.pi/180
-        vNS=6371.*rotrate*np.cos(rotlat)*np.sin(pointlong-rotlong)
-        vEW=6371.*rotrate*(np.cos(pointlat)*np.sin(rotlat)-np.sin(pointlat)*np.cos(rotlat)*np.cos(pointlong-rotlong))
-        azimuth=90.-(180/np.pi*np.arctan2(vNS,vEW))
-        if azimuth<0.: azimuth=azimuth+360.
-        return pd.Series([stagerot.StartAge,stagerot.EndAge,np.sqrt(vNS**2+vEW**2)/abs(stagerot.StartAge-stagerot.EndAge),
-                            azimuth,np.sqrt(vNS**2+vEW**2),vNS,vEW],
-                            index=['StartAge','EndAge','Rate','Bearing','Distance','NS_component','EW_component'])
-                            
-    def predict_DI(self,ages,rotmodel,abs_ref_frame=3):
-        """
-        Predicts the Declination and Inclination that should be observed from samples of age ages
-        at this site - a range of ages can be used because of the possibility of remagnetisation.
-        absolute_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
-        """
-        VGPs=rotmodel.synthetic_APWP(self.PlateCode,abs_ref_frame,ages)
-        reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
-        rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
-        paleoI=[np.arctan(2*np.tan(point.LocPars.PointLat*np.pi/180))*180/np.pi for point in rotated]
-        pp=np.array(([np.sin((90-vgp_lat)*np.pi/180) for vgp_lat in VGPs.summary().Lat]))
-        dphi=np.array(([np.sin((vgp_lon-self.LocPars.PointLong)*np.pi/180) for vgp_lon in VGPs.summary().Lon]))
-        pm=np.array(([np.sin((90-point.LocPars.PointLat)*np.pi/180) for point in rotated]))
-        paleoD=np.arcsin(pp*dphi/pm)*180/np.pi
-        return pd.DataFrame(np.column_stack((ages,[point.LocPars.PointLat for point in rotated],[point.LocPars.PointLong for point in rotated],paleoD,paleoI)), 
-                                        columns=['Age','Lat','Lon','PredDec','PredInc'])
-        
-    def summary(self):
-        """
-        Returns a pandas series in same format as PointPars needed for creation. 
-        """
-        return pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.ReconstructionAge]+self.LocPars.tolist(),
-                                index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])       
-        
+		#get Lat and Long of starting position of point in relevant reference frame
+		#if start age or endage is 0, causes problems... (because if not there is an additional 0 Ma rotation)
+		if startage==0 or endage==0: rotindex=0
+		else: rotindex=1
+		
+		reconstruction_rots=rotmodel.get_rots(self.PlateCode,refplate,[startage,endage])
+		latlong=self.rotate(reconstruction_rots.rotations[rotindex]).LocPars   
+		pointlat=latlong.PointLat*np.pi/180
+		pointlong=latlong.PointLong*np.pi/180
+		
+		#get the stage rotation over the relevant interval, and invert if going forward in time (normally will be)
+		stagerot=reconstruction_rots.stagerots().rotations[rotindex]
+		if startage>endage:
+			stagerot=stagerot.invert('time')
+		if fixed==1:
+			stagerot=stagerot.invert()		
+		rotlat=stagerot.RotPars.RotLat*np.pi/180
+		rotlong=stagerot.RotPars.RotLong*np.pi/180
+		rotrate=stagerot.RotPars.RotAng*np.pi/180
+		vNS=6371.*rotrate*np.cos(rotlat)*np.sin(pointlong-rotlong)
+		vEW=6371.*rotrate*(np.cos(pointlat)*np.sin(rotlat)-np.sin(pointlat)*np.cos(rotlat)*np.cos(pointlong-rotlong))
+		azimuth=90.-(180/np.pi*np.arctan2(vNS,vEW))
+		if azimuth<0.: azimuth=azimuth+360.
+		return pd.Series([stagerot.StartAge,stagerot.EndAge,np.sqrt(vNS**2+vEW**2)/abs(stagerot.StartAge-stagerot.EndAge),
+							azimuth,np.sqrt(vNS**2+vEW**2),vNS,vEW],
+							index=['StartAge','EndAge','Rate','Bearing','Distance','NS_component','EW_component'])
+							
+	def predict_DI(self,ages,rotmodel,abs_ref_frame=3):
+		"""
+		Predicts the Declination and Inclination that should be observed from samples of age ages
+		at this site - a range of ages can be used because of the possibility of remagnetisation.
+		absolute_ref_frame should be an absolute or hotspot frame of reference (e.g. Pacific=3)
+		"""
+		VGPs=rotmodel.synthetic_APWP(self.PlateCode,abs_ref_frame,ages)
+		reconstruction_rots=rotmodel.get_rots(self.PlateCode,abs_ref_frame,ages)
+		rotated=[self.rotate(rotation) for rotation in reconstruction_rots.rotations[1:]]
+		paleoI=[np.arctan(2*np.tan(point.LocPars.PointLat*np.pi/180))*180/np.pi for point in rotated]
+		pp=np.array(([np.sin((90-vgp_lat)*np.pi/180) for vgp_lat in VGPs.summary().Lat]))
+		dphi=np.array(([np.sin((vgp_lon-self.LocPars.PointLong)*np.pi/180) for vgp_lon in VGPs.summary().Lon]))
+		pm=np.array(([np.sin((90-point.LocPars.PointLat)*np.pi/180) for point in rotated]))
+		paleoD=np.arcsin(pp*dphi/pm)*180/np.pi
+		return pd.DataFrame(np.column_stack((ages,[point.LocPars.PointLat for point in rotated],[point.LocPars.PointLong for point in rotated],paleoD,paleoI)), 
+										columns=['Age','Lat','Lon','PredDec','PredInc'])
+		
+	def summary(self):
+		"""
+		Returns a pandas series in same format as PointPars needed for creation. 
+		"""
+		return pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.ReconstructionAge]+self.LocPars.tolist(),
+								index=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])	   
+		
 class PointSet(object):
-    """ Baseclass for a set of Points assigned to the same plate that can be operated on. 
-        Methods match those for Point, but applied to every point in the set.
-        Mapplot plots as individual points. 
-        
-        Attributes:
-        SetName: string describing feature
-        
-        Other Point attributes (e.g. PlateCode, FeatureAge, colors may vary by point.
-    """
-    def __init__(self,PointList,SetName='PointSet',PlotColor=None,PlotLevel=None):
-        """Return object
-        PointList should be a list of Point objects
-        
-        If a PlotColor, PlotLevel is supplied it will overirde those characteristics for the input points
-        """
-        self.points=PointList
-        self.SetName = SetName
-        
-        if PlotColor: 
-            for point in self.points: point.PlotColor=PlotColor
-        if PlotLevel: 
-            for point in self.points: point.PlotLevel=PlotLevel 
-        # originally set up assuming that all points would be on the same plate, but
-        # whereas this is a reasonable assumption for Path and Platelet objects, there
-        # is no real reason this must be the case for a simple set of Points
-        
-#        self.PlateCode=PointList.iloc[0].PlateCode
-        #not sure how much, but information about reference frame could be useful
-#        self.ReferencePlate=self.PlateCode
-        
-        # assumption that all points have same ReconstructionAge *is*
-        # reasonable, as whole point of PointSet is ability to apply simultaneous 
-        # transformations.
-        
-#        self.FeatureAge=PointList.iloc[0].FeatureAge
-        self.ReconstructionAge=PointList[0].ReconstructionAge
-        # list of the different plates points are on.
-        self.PlateCodes=list(set([point.PlateCode for point in self.points]))
+	""" Baseclass for a set of Points assigned to the same plate that can be operated on. 
+		Methods match those for Point, but applied to every point in the set.
+		Mapplot plots as individual points. 
+		
+		Attributes:
+		SetName: string describing feature
+		
+		Other Point attributes (e.g. PlateCode, FeatureAge, colors may vary by point.
+	"""
+	def __init__(self,PointList,SetName='PointSet',PlotColor=None,PlotLevel=None):
+		"""Return object
+		PointList should be a list of Point objects
+		
+		If a PlotColor, PlotLevel is supplied it will overirde those characteristics for the input points
+		"""
+		self.points=PointList
+		self.SetName = SetName
+		
+		if PlotColor: 
+			for point in self.points: point.PlotColor=PlotColor
+		if PlotLevel: 
+			for point in self.points: point.PlotLevel=PlotLevel 
+		# originally set up assuming that all points would be on the same plate, but
+		# whereas this is a reasonable assumption for Path and Platelet objects, there
+		# is no real reason this must be the case for a simple set of Points
+		
+#		self.PlateCode=PointList.iloc[0].PlateCode
+		#not sure how much, but information about reference frame could be useful
+#		self.ReferencePlate=self.PlateCode
+		
+		# assumption that all points have same ReconstructionAge *is*
+		# reasonable, as whole point of PointSet is ability to apply simultaneous 
+		# transformations.
+		
+#		self.FeatureAge=PointList.iloc[0].FeatureAge
+		self.ReconstructionAge=PointList[0].ReconstructionAge
+		# list of the different plates points are on.
+		self.PlateCodes=list(set([point.PlateCode for point in self.points]))
 
-    def filter_by_plate(self,platecode):
-        """
-        returns a list of Point objects in the PointSet with the given platecode.
-        
-        If there are no Points on specified plate, will currently return empty list.
-        """
-        return [self.points[select] for select in np.where(np.array(self.PlateCodes==platecode))[0]]
+	def filter_by_plate(self,platecode):
+		"""
+		returns a list of Point objects in the PointSet with the given platecode.
+		
+		If there are no Points on specified plate, will currently return empty list.
+		"""
+		return [self.points[select] for select in np.where(np.array(self.PlateCodes==platecode))[0]]
 
-    def mapplot(self,PlotAxis=None, Ellipses=True, OverideCol=None):
-        """
-        NB: currently set up for Cartopy Geoaxes
-        Plots points on pre-existing plot:
-        - if no plot is assigned to PlotAxis, will plot to the currently active plot.
-        - if Ellipses=True, will plot the associated error ellipse (if an error is defined)
-        - Plot color will be self.PlotColor unless and OverideCol is defined.       
-        """
-        
-        for point in self.points:
-            point.mapplot(PlotAxis,Ellipses,OverideCol)
-    
-    def rotate(self,rotation):
-        """Rotates pointset by EulerRotation rotation
-        """ 
-        rotated=copy.deepcopy(self)
-        #this is a lot less fiddly than converting rotated point list into format where can create PointSet de novo
-        rotated.points=[point.rotate(rotation) for point in self.points]
-#        rotated.ReferencePlate=rotation.FixedPlate
-        rotated.ReconstructionAge=rotation.EndAge
-        return rotated
-    
-    def reconstruct(self,age,refplate,rotmodel):
-        """
-        Finds the EulerRotation for specified age, then rotates it
-        Todo: drop points where FeatureAge<ReconstructionAge?
-        """
-        # no requirement for all points to be on same plate makes this tricky.
-        # to avoid pointless computation, will only search for a new rotation if required to
-        rotated=[]
-        for platecode in self.PlateCodes:
-            selected=self.filter_by_plate(platecode)
-            #another place where adding the zero rotation could trip you up.
-            rotation=rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1]
-            rotated=rotated+[point.rotate(rotation) for point in selected]
-        #note that if it wasn't before, the points are now sorted by platecode (although platecode is not ordered)
-        return PointSet(rotated)
-    
-    def motion_vectors(self,refplate,rotmodel,age_range=[1,0]):
-        """
-        calculates the magnitudes and directions of the plate motion vector for each locality relative to the specified
-        reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
-        outputs bearings and rates in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
-        """
-        return pd.DataFrame([point.motion_vector(refplate,rotmodel,age_range) for point in self.points])
+	def mapplot(self,PlotAxis=None, Ellipses=True, OverideCol=None):
+		"""
+		NB: currently set up for Cartopy Geoaxes
+		Plots points on pre-existing plot:
+		- if no plot is assigned to PlotAxis, will plot to the currently active plot.
+		- if Ellipses=True, will plot the associated error ellipse (if an error is defined)
+		- Plot color will be self.PlotColor unless and OverideCol is defined.	   
+		"""
+		
+		for point in self.points:
+			point.mapplot(PlotAxis,Ellipses,OverideCol)
+	
+	def rotate(self,rotation):
+		"""Rotates pointset by EulerRotation rotation
+		""" 
+		rotated=copy.deepcopy(self)
+		#this is a lot less fiddly than converting rotated point list into format where can create PointSet de novo
+		rotated.points=[point.rotate(rotation) for point in self.points]
+#		rotated.ReferencePlate=rotation.FixedPlate
+		rotated.ReconstructionAge=rotation.EndAge
+		return rotated
+	
+	def reconstruct(self,age,refplate,rotmodel):
+		"""
+		Finds the EulerRotation for specified age, then rotates it
+		Todo: drop points where FeatureAge<ReconstructionAge?
+		"""
+		# no requirement for all points to be on same plate makes this tricky.
+		# to avoid pointless computation, will only search for a new rotation if required to
+		rotated=[]
+		for platecode in self.PlateCodes:
+			selected=self.filter_by_plate(platecode)
+			#another place where adding the zero rotation could trip you up.
+			rotation=rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1]
+			rotated=rotated+[point.rotate(rotation) for point in selected]
+		#note that if it wasn't before, the points are now sorted by platecode (although platecode is not ordered)
+		return PointSet(rotated)
+	
+	def motion_vectors(self,refplate,rotmodel,age_range=[1,0]):
+		"""
+		calculates the magnitudes and directions of the plate motion vector for each locality relative to the specified
+		reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
+		outputs bearings and rates in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
+		"""
+		return pd.DataFrame([point.motion_vector(refplate,rotmodel,age_range) for point in self.points])
 
-    def summary(self):
-        return pd.DataFrame([[point.PointName,point.PlateCode,point.FeatureAge,point.ReconstructionAge]+point.LocPars.tolist() for point in self.points],
-                            columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
+	def summary(self):
+		return pd.DataFrame([[point.PointName,point.PlateCode,point.FeatureAge,point.ReconstructionAge]+point.LocPars.tolist() for point in self.points],
+							columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
   
-               
-class Path(object):        
-    """ line that can be acted on by rotations.
-    
-        SetName: string describing feature
-        PlateCode: tectonic plate code on which points are located
-        ReconstructionAge: age that current set of points has been reconstructed at
-        points: List of Points
-    """
-    def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
-        """Return object
-        PointList should be a list of Point Objects
-        """
-        self.points=PointList
-        self.point_no=len(self.points)
-        self.SetName = SetName
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel 
-        self.PlateCode=PointList[0].PlateCode
-        #not sure how much, but information about reference frame could be useful
-        self.ReferencePlate=self.PlateCode
-        self.FeatureAge=PointList[0].FeatureAge
-        self.ReconstructionAge=PointList[0].ReconstructionAge
+			   
+class Path(object):		
+	""" line that can be acted on by rotations.
+	
+		SetName: string describing feature
+		PlateCode: tectonic plate code on which points are located
+		ReconstructionAge: age that current set of points has been reconstructed at
+		points: List of Points
+	"""
+	def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+		"""Return object
+		PointList should be a list of Point Objects
+		"""
+		self.points=PointList
+		self.point_no=len(self.points)
+		self.SetName = SetName
+		self.PlotColor=PlotColor
+		self.PlotLevel=PlotLevel 
+		self.PlateCode=PointList[0].PlateCode
+		#not sure how much, but information about reference frame could be useful
+		self.ReferencePlate=self.PlateCode
+		self.FeatureAge=PointList[0].FeatureAge
+		self.ReconstructionAge=PointList[0].ReconstructionAge
 
  
-    def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=True, Ellipses=False, OverideCol=None):   
-        if PlotAxis: ax=PlotAxis
-        else: ax=plt.gca()
-        if OverideCol==None: OverideCol=self.PlotColor
-        
-        ax.plot(self.summary().Lon.values,self.summary().Lat.values, 
-                linewidth=LineThickness, color=OverideCol, zorder=self.PlotLevel,
-                transform=ccrs.Geodetic())
-        if ShowPoints: 
-            for point in self.points: point.mapplot(PlotAxis,Ellipses,self.PlotColor)
-        
-    def segment_lengths(self):
-        """
-        returns a list of angular distances between path segments (seperation between adjacent points)
-        """
-        return [point1.ang_dist(point2) for point1,point2 in zip(self.points[:-1],self.points[1:])]
+	def mapplot(self,PlotAxis=None, LineThickness=2, ShowPoints=True, Ellipses=False, OverideCol=None):   
+		if PlotAxis: ax=PlotAxis
+		else: ax=plt.gca()
+		if OverideCol==None: OverideCol=self.PlotColor
+		
+		ax.plot(self.summary().Lon.values,self.summary().Lat.values, 
+				linewidth=LineThickness, color=OverideCol, zorder=self.PlotLevel,
+				transform=ccrs.Geodetic())
+		if ShowPoints: 
+			for point in self.points: point.mapplot(PlotAxis,Ellipses,self.PlotColor)
+		
+	def segment_lengths(self):
+		"""
+		returns a list of angular distances between path segments (seperation between adjacent points)
+		"""
+		return [point1.ang_dist(point2) for point1,point2 in zip(self.points[:-1],self.points[1:])]
 
-    def ang_dist(self,otherpath):
-        """
-        returns a list of angular distances between points on this Path and input Path Object otherpath.
-        WARNING! Currently a very simple function, which assumes that the comparison 
-        path has same number of points, and that those points are coeval. GIGO!
-        """
-        return [point1.ang_dist(point2) for point1,point2 in zip(self.points,otherpath.points)]
-    
-    
-    def spatial_difference(self,otherpath,start=0,end=None,asmean=True,normalisation=50.):
-        """
-        calculates the gcd distance between coeval pairs. By default, returns the mean, but can return a list of individual values if
-        asmean is set to False. By default, will calculate over the whole path, but can sample a subsection by sending desired index values
-        using start and end variables. GCD is capped at the normalisation angle.
-        
-        Modified from function developed by Chenjian Fu: https://github.com/f-i/Spherical_Path_Comparison
-        """
-        if end==None: end=self.point_no
-        if asmean==True: return np.mean([distance/normalisation if distance/normalisation<1. else 1. for distance in self.ang_dist(otherpath)][start:end])
-        else: return [distance/normalisation if distance/normalisation<1. else 1. for distance in self.ang_dist(otherpath)][start:end]
-        
-    def significant_spatial_difference(self,otherpath,trials=1000,start=0,end=None,asmean=True,normalisation=50.):
-        """
-        through resampling of points according to their associated uncertainty parameters, checks to see if the measured separations between coeval points
-        are statistically significant or not. Indistinguishable points have their separation set to 0. 
+	def ang_dist(self,otherpath):
+		"""
+		returns a list of angular distances between points on this Path and input Path Object otherpath.
+		WARNING! Currently a very simple function, which assumes that the comparison 
+		path has same number of points, and that those points are coeval. GIGO!
+		"""
+		return [point1.ang_dist(point2) for point1,point2 in zip(self.points,otherpath.points)]
+	
+	
+	def spatial_difference(self,otherpath,start=0,end=None,asmean=True,normalisation=50.):
+		"""
+		calculates the gcd distance between coeval pairs. By default, returns the mean, but can return a list of individual values if
+		asmean is set to False. By default, will calculate over the whole path, but can sample a subsection by sending desired index values
+		using start and end variables. GCD is capped at the normalisation angle.
+		
+		Modified from function developed by Chenjian Fu: https://github.com/f-i/Spherical_Path_Comparison
+		"""
+		if end==None: end=self.point_no
+		if asmean==True: return np.mean([distance/normalisation if distance/normalisation<1. else 1. for distance in self.ang_dist(otherpath)][start:end])
+		else: return [distance/normalisation if distance/normalisation<1. else 1. for distance in self.ang_dist(otherpath)][start:end]
+		
+	def significant_spatial_difference(self,otherpath,trials=1000,start=0,end=None,asmean=True,normalisation=50.):
+		"""
+		through resampling of points according to their associated uncertainty parameters, checks to see if the measured separations between coeval points
+		are statistically significant or not. Indistinguishable points have their separation set to 0. 
  
-        Based on significant spatial difference score developed by Chenjian Fu: https://github.com/f-i/Spherical_Path_Comparison
-        """
-        if end==None: end=self.point_no
-        sig_result=[point1.common_dir_test(point2) for point1,point2 in zip(self.points,otherpath.points)][start:end]
-        if asmean==True: return [(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result]
-        else: return np.mean([(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result])
+		Based on significant spatial difference score developed by Chenjian Fu: https://github.com/f-i/Spherical_Path_Comparison
+		"""
+		if end==None: end=self.point_no
+		sig_result=[point1.common_dir_test(point2) for point1,point2 in zip(self.points,otherpath.points)][start:end]
+		if asmean==True: return [(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result]
+		else: return np.mean([(result[0]*result[1])/50. if (result[0]*result[1])/50.<1 else 1. for result in sig_result])
 
-    def length_difference(self,otherpath,start=0,end=None,asmean=True):
-        """
-        For each coeval segment, calculates the absolute length difference and then 
-        normalises it by the total length of the two segments. 
-        
-        Scores ->1: one segment very short, one very long (if 1, then one segment has zero length)
-        Scores ->0: segments have almost equal length (if 0, exactly equal)
-        
-        Based on length difference score developed by Chenjian Fu (https://github.com/f-i/Spherical_Path_Comparison)
-        but generalised to any path, not just ones with a duration.
-        """
-        if end==None: end=self.point_no
-        if asmean==True:
-            return np.mean(np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(np.array(self.segment_lengths())+np.array(otherpath.segment_lengths()))[start:end])
-        else:
-            return np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(np.array(self.segment_lengths())+np.array(otherpath.segment_lengths()))[start:end]
-        
-    def rotate(self,rotation):
-        """Rotates pointset by EulerRotation rotation
-        """ 
-        rotated=copy.deepcopy(self)
-        #this is a lot less fiddly than converting rotated point list into format where can create PointSet de novo
-        rotated.points=[point.rotate(rotation) for point in self.points]
-        rotated.ReferencePlate=rotation.FixedPlate
-        rotated.ReconstructionAge=rotation.EndAge
-        return rotated
-    
-    def reconstruct(self,age,refplate,rotmodel):
-        #first check if the reference plate is this plate.
-        if refplate==self.PlateCode:
-            return self
-        #another place where adding the zero rotation could trip you up.
-        else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
+	def length_difference(self,otherpath,start=0,end=None,asmean=True):
+		"""
+		For each coeval segment, calculates the absolute length difference and then 
+		normalises it by the total length of the two segments. 
+		
+		Scores ->1: one segment very short, one very long (if 1, then one segment has zero length)
+		Scores ->0: segments have almost equal length (if 0, exactly equal)
+		
+		Based on length difference score developed by Chenjian Fu (https://github.com/f-i/Spherical_Path_Comparison)
+		but generalised to any path, not just ones with a duration.
+		"""
+		if end==None: end=self.point_no
+		if asmean==True:
+			return np.mean(np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(np.array(self.segment_lengths())+np.array(otherpath.segment_lengths()))[start:end])
+		else:
+			return np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(np.array(self.segment_lengths())+np.array(otherpath.segment_lengths()))[start:end]
+		
+	def rotate(self,rotation):
+		"""Rotates pointset by EulerRotation rotation
+		""" 
+		rotated=copy.deepcopy(self)
+		#this is a lot less fiddly than converting rotated point list into format where can create PointSet de novo
+		rotated.points=[point.rotate(rotation) for point in self.points]
+		rotated.ReferencePlate=rotation.FixedPlate
+		rotated.ReconstructionAge=rotation.EndAge
+		return rotated
+	
+	def reconstruct(self,age,refplate,rotmodel):
+		#first check if the reference plate is this plate.
+		if refplate==self.PlateCode:
+			return self
+		#another place where adding the zero rotation could trip you up.
+		else: return self.rotate(rotmodel.get_rots(self.PlateCode,refplate,[age]).rotations[-1])
   
-    def motion_vectors(self,refplate,rotmodel,age_range=[1,0]):
-        """
-        calculates the magnitudes and directions of the plate motion vector for each locality relative to the specified
-        reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
-        outputs bearings and rates in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
-        """
-        return pd.DataFrame([point.motion_vector(refplate,rotmodel,age_range) for point in self.points])
+	def motion_vectors(self,refplate,rotmodel,age_range=[1,0]):
+		"""
+		calculates the magnitudes and directions of the plate motion vector for each locality relative to the specified
+		reference plate. By default, it will calculate the contemporary vector (last 1 Ma of motion).
+		outputs bearings and rates in mm/yr or km/Myr; also N-S and E-W components of velocity and total displacement.
+		"""
+		return pd.DataFrame([point.motion_vector(refplate,rotmodel,age_range) for point in self.points])
 
-    def summary(self):
-        return pd.DataFrame([[point.PointName,point.PlateCode,point.FeatureAge,point.ReconstructionAge]+point.LocPars.tolist() for point in self.points],
-                            columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
+	def summary(self):
+		return pd.DataFrame([[point.PointName,point.PlateCode,point.FeatureAge,point.ReconstructionAge]+point.LocPars.tolist() for point in self.points],
+							columns=['Name','PlateCode','FeatureAge','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing'])
 
 
 class Platelet(Path):
-    """ closed Polygon that can be acted on by rotations but no defined subsegments as PlatePolygon
-    
-        Attributes (inherited from PointSet):
-        name: string describing feature
-        PlateCode: tectonic plate code on which point(s) are located
-        FeatureAge: age of feature
-        ReconstructionAge: age that current set of points has been reconstructed at
-        LatLons: pandas DataFrame with Lat and Long points 
-        PlotColor: assigned colour (defaults to grey)
-        PlotLevel: plot level (defaults to 5)
-    """
-    def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
-        """Return object
-        PointList should be a list of Point Objects
-        """
-        Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
-#        self.PlotColor=PlotColor
-#        self.PlotLevel=PlotLevel
+	""" closed Polygon that can be acted on by rotations but no defined subsegments as PlatePolygon
+	
+		Attributes (inherited from PointSet):
+		name: string describing feature
+		PlateCode: tectonic plate code on which point(s) are located
+		FeatureAge: age of feature
+		ReconstructionAge: age that current set of points has been reconstructed at
+		LatLons: pandas DataFrame with Lat and Long points 
+		PlotColor: assigned colour (defaults to grey)
+		PlotLevel: plot level (defaults to 5)
+	"""
+	def __init__(self,PointList,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+		"""Return object
+		PointList should be a list of Point Objects
+		"""
+		Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+#		self.PlotColor=PlotColor
+#		self.PlotLevel=PlotLevel
 
-    def mapplot(self,m,thickness=2,transparency=0.5):
-        """plot polygon on specified basemap"""
-        self.pltx,self.plty=self.summary().Lon.values,self.summary().Lat.values
-        self.polygon=Polygon(zip(self.pltx,self.plty),
-                             facecolor=self.PlotColor, alpha=transparency, zorder=self.PlotLevel,
-                             transform=ccrs.Geodetic())
-        plt.gca().add_patch(self.polygon)
-        plt.plot(self.pltx,self.plty, color=self.PlotColor, linewidth=thickness,zorder=self.PlotLevel,transform=ccrs.Geodetic())
+	def mapplot(self,m,thickness=2,transparency=0.5):
+		"""plot polygon on specified basemap"""
+		self.pltx,self.plty=self.summary().Lon.values,self.summary().Lat.values
+		self.polygon=Polygon(zip(self.pltx,self.plty),
+							 facecolor=self.PlotColor, alpha=transparency, zorder=self.PlotLevel,
+							 transform=ccrs.Geodetic())
+		plt.gca().add_patch(self.polygon)
+		plt.plot(self.pltx,self.plty, color=self.PlotColor, linewidth=thickness,zorder=self.PlotLevel,transform=ccrs.Geodetic())
 
-        
+		
 class Flowline(Path):
-    """
-    A set of points tracking a feature over a range of reconstruction ages
-    Attributes:      
-    name: string describing feature
-    
-    MovingPlate: tectonic plate code for point being modelled
-    FixedPlate: reference frame for point rotation
-    PlotLevel: plot level (defaults to 5)
-    
-    Methods:
-    mapplot: 
-    mapplot_age:
-    summary:
-    """
-    def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
-        Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
-#        self.PlotColor=PlotColor
-#        self.PlotLevel=PlotLevel
-        # MovingPlate might be redundant as Path already has PlateCode
-        self.MovingPlate=PointList[0].PlateCode
-        self.FixedPlate=RefPlate
-        # not sure if this is the best fix but whereas Path assumes a constant 
-        # reconstruction Age, by definition a flowline has many. 
-        self.ReconstructionAge=None
-        
-#        
-#    def mapplot(self,thickness=2):          
-#        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
-#                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
-#                transform=ccrs.Geodetic())
-                            
-    def mapplot_age(self,colourmap='plasma_r',plotbar='N',ellipseflag=1):
-        age_cmap=plt.get_cmap(colourmap)
-        maxage=np.round(max(self.summary().ReconstructionAge),-1)
-        minage=np.round(min(self.summary().ReconstructionAge),-1)
-        cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
-        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
-        i=0
-        x0,y0,age0=0.,0.,0.
-        for point in self.points:
-            point.mapplot(ellipseflag,pointcol=scalarMap.to_rgba(point.ReconstructionAge))
-            if i>0:
-                plt.plot([x0,point.LocPars.PointLong], [y0,point.LocPars.PointLat],
-                        linewidth=2,
-                        color=scalarMap.to_rgba(point.ReconstructionAge+((point.ReconstructionAge-age0)/2)),
-                        transform=ccrs.Geodetic(),
-                        zorder=self.PlotLevel-1)
-            x0,y0,age0=point.LocPars.PointLong,point.LocPars.PointLat,point.ReconstructionAge
-            i=i+1 
-            
-        #add colorbar for age
-        if plotbar=='Y':   
-            ax1 = plt.gca()
-            #sneaky way to extend axes with right dimensions
-            divider=make_axes_locatable(ax1)
-            ax2 = divider.append_axes("bottom", size="5%", pad=0.1)
-            cb1=colorbar.ColorbarBase(ax2, cmap=age_cmap,norm=cNorm,orientation='horizontal')
-            cb1.set_label('Age (Ma)')
+	"""
+	A set of points tracking a feature over a range of reconstruction ages
+	Attributes:	  
+	name: string describing feature
+	
+	MovingPlate: tectonic plate code for point being modelled
+	FixedPlate: reference frame for point rotation
+	PlotLevel: plot level (defaults to 5)
+	
+	Methods:
+	mapplot: 
+	mapplot_age:
+	summary:
+	"""
+	def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+		Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+#		self.PlotColor=PlotColor
+#		self.PlotLevel=PlotLevel
+		# MovingPlate might be redundant as Path already has PlateCode
+		self.MovingPlate=PointList[0].PlateCode
+		self.FixedPlate=RefPlate
+		# not sure if this is the best fix but whereas Path assumes a constant 
+		# reconstruction Age, by definition a flowline has many. 
+		self.ReconstructionAge=None
+		
+#		
+#	def mapplot(self,thickness=2):		  
+#		plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
+#				linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
+#				transform=ccrs.Geodetic())
+							
+	def mapplot_age(self,colourmap='plasma_r',plotbar='N',ellipseflag=1):
+		age_cmap=plt.get_cmap(colourmap)
+		maxage=np.round(max(self.summary().ReconstructionAge),-1)
+		minage=np.round(min(self.summary().ReconstructionAge),-1)
+		cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
+		scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
+		i=0
+		x0,y0,age0=0.,0.,0.
+		for point in self.points:
+			point.mapplot(ellipseflag,OverideCol=scalarMap.to_rgba(point.ReconstructionAge))
+			if i>0:
+				plt.plot([x0,point.LocPars.PointLong], [y0,point.LocPars.PointLat],
+						linewidth=2,
+						color=scalarMap.to_rgba(point.ReconstructionAge+((point.ReconstructionAge-age0)/2)),
+						transform=ccrs.Geodetic(),
+						zorder=self.PlotLevel-1)
+			x0,y0,age0=point.LocPars.PointLong,point.LocPars.PointLat,point.ReconstructionAge
+			i=i+1 
+			
+		#add colorbar for age
+		if plotbar=='Y':   
+			ax1 = plt.gca()
+			#sneaky way to extend axes with right dimensions
+			divider=make_axes_locatable(ax1)
+			ax2 = divider.append_axes("bottom", size="5%", pad=0.1)
+			cb1=colorbar.ColorbarBase(ax2, cmap=age_cmap,norm=cNorm,orientation='horizontal')
+			cb1.set_label('Age (Ma)')
 
-    def alt_length_difference(self, otherpath, start=0,end=None,asmean=True):
-        """
-        
-        """
-        if end==None: end=self.point_no
-        if asmean==True:
-            return np.mean(np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(2.7*np.array([point1.ReconstructionAge-point2.ReconstructionAge for point1,point2 in zip(self.points[1:],self.points[:-1])]))[start:end])
-        else:
-            return np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(2.7*np.array([point1.ReconstructionAge-point2.ReconstructionAge for point1,point2 in zip(self.points[1:],self.points[:-1])]))[start:end]
+	def alt_length_difference(self, otherpath, start=0,end=None,asmean=True):
+		"""
+		
+		"""
+		if end==None: end=self.point_no
+		if asmean==True:
+			return np.mean(np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(2.7*np.array([point1.ReconstructionAge-point2.ReconstructionAge for point1,point2 in zip(self.points[1:],self.points[:-1])]))[start:end])
+		else:
+			return np.abs(np.array(self.segment_lengths())-np.array(otherpath.segment_lengths()))[start:end]/(2.7*np.array([point1.ReconstructionAge-point2.ReconstructionAge for point1,point2 in zip(self.points[1:],self.points[:-1])]))[start:end]
 
 
 
 class APWP(Flowline):
-    """
-    A flowline specifically for APWPs, which unlike the more standard flowline are a reconstruction of time 0
-    of the position of the VGP at a particular age. Currently set up to 
-    Attributes:      
-    name: string describing feature
-    PlateCode: tectonic plate code for point being modelled
-    FixedPlate: reference frame for point rotation
-    PlotLevel: plot level (defaults to 5)
-    
-    Methods:
-    plot
-    """
-    def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
-        Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
-        self.PlotColor=PlotColor
-        self.PlotLevel=PlotLevel
-        self.MovingPlate=PointList[0].PlateCode
-        self.FixedPlate=RefPlate
-        
-    def mapplot(self,thickness=2):          
-        plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
-                linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
-                transform=ccrs.Geodetic())
-                            
-    def mapplot_age(self,colourmap='plasma_r',plotbar='N',ellipseflag=1):
-        age_cmap=plt.get_cmap(colourmap)
-        maxage=np.round(max(self.summary().FeatureAge),-1)
-        minage=np.round(min(self.summary().FeatureAge),-1)
-        cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
-        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
-        i=0
-        x0,y0,age0=0.,0.,0.
-        for point in self.points:
-            point.mapplot(ellipseflag,pointcol=scalarMap.to_rgba(point.FeatureAge))
-            if i>0:
-                plt.plot([x0,point.LocPars.PointLong], [y0,point.LocPars.PointLat],
-                        linewidth=2,
-                        color=scalarMap.to_rgba(point.FeatureAge+((point.FeatureAge-age0)/2)),
-                        transform=ccrs.Geodetic(),
-                        zorder=self.PlotLevel-1)
-            x0,y0,age0=point.LocPars.PointLong,point.LocPars.PointLat,point.FeatureAge
-            i=i+1                         
-                                                
-                                                            
-                                        
+	"""
+	A flowline specifically for APWPs, which unlike the more standard flowline are a reconstruction of time 0
+	of the position of the VGP at a particular age. Currently set up to 
+	Attributes:	  
+	name: string describing feature
+	PlateCode: tectonic plate code for point being modelled
+	FixedPlate: reference frame for point rotation
+	PlotLevel: plot level (defaults to 5)
+	
+	Methods:
+	plot
+	"""
+	def __init__(self,PointList,RefPlate,SetName='PointSet',PlotColor='grey',PlotLevel=5):
+		Path.__init__(self,PointList,SetName,PlotColor,PlotLevel)
+		self.PlotColor=PlotColor
+		self.PlotLevel=PlotLevel
+		self.MovingPlate=PointList[0].PlateCode
+		self.FixedPlate=RefPlate
+		
+	def mapplot(self,thickness=2):		  
+		plt.plot(self.summary().Lon.values,self.summary().Lat.values, 
+				linewidth=thickness, color=self.PlotColor, zorder=self.PlotLevel,
+				transform=ccrs.Geodetic())
+							
+	def mapplot_age(self,colourmap='plasma_r',plotbar='N',ellipseflag=1):
+		age_cmap=plt.get_cmap(colourmap)
+		maxage=np.round(max(self.summary().FeatureAge),-1)
+		minage=np.round(min(self.summary().FeatureAge),-1)
+		cNorm  = colors.Normalize(vmin=minage, vmax=maxage)
+		scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=age_cmap)
+		i=0
+		x0,y0,age0=0.,0.,0.
+		for point in self.points:
+			point.mapplot(ellipseflag,OverideCol=scalarMap.to_rgba(point.FeatureAge))
+			if i>0:
+				plt.plot([x0,point.LocPars.PointLong], [y0,point.LocPars.PointLat],
+						linewidth=2,
+						color=scalarMap.to_rgba(point.FeatureAge+((point.FeatureAge-age0)/2)),
+						transform=ccrs.Geodetic(),
+						zorder=self.PlotLevel-1)
+			x0,y0,age0=point.LocPars.PointLong,point.LocPars.PointLat,point.FeatureAge
+			i=i+1						 
+												
+															
+										
 class AMS_Locality(Point):
-    """ A sampling site with associated AMS data 
-    New Attributes:
-    AMS_info: a pandas series that contains AMS ellipsoid information (currently just lineation orientation and error)
-    Age_err: Age Error associated with site
-    """
-    def __init__(self, AMSpars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
-        Point.__init__(self,AMSpars,PlotColor,PlotLevel,PlotSymbolSize)
-        #need to add whole ellispoid info here eventually...
-        self.AMS_info=pd.Series([AMSpars.AMS_max,AMSpars.max_err],index=['k_max','k_max_err'])
-        self.Age_err=AMSpars.Age_err
-        
-    def mapplot(self,m,plottrend=0):
-        """
-        plottrend=1 will add the trend of the sigma1 direction to the symbol.
-        """
-        self.pltx,self.plty=self.LatLons.Lon,self.LatLons.Lat
-        plt.plot(self.pltx,self.plty, marker='o',ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel,transform=ccrs.Geodetic())
-        if plottrend==1:
-            trend=self.sigma_1()
-            plt.quiver(self.pltx,self.plty,np.sin(trend*np.pi/180.),np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel,transform=ccrs.Geodetic())
-            plt.quiver(self.pltx,self.plty,-np.sin(trend*np.pi/180.),-np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel,transform=ccrs.Geodetic())
+	""" A sampling site with associated AMS data 
+	New Attributes:
+	AMS_info: a pandas series that contains AMS ellipsoid information (currently just lineation orientation and error)
+	Age_err: Age Error associated with site
+	"""
+	def __init__(self, AMSpars,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
+		Point.__init__(self,AMSpars,PlotColor,PlotLevel,PlotSymbolSize)
+		#need to add whole ellispoid info here eventually...
+		self.AMS_info=pd.Series([AMSpars.AMS_max,AMSpars.max_err],index=['k_max','k_max_err'])
+		self.Age_err=AMSpars.Age_err
+		
+	def mapplot(self,m,plottrend=0):
+		"""
+		plottrend=1 will add the trend of the sigma1 direction to the symbol.
+		"""
+		self.pltx,self.plty=self.LatLons.Lon,self.LatLons.Lat
+		plt.plot(self.pltx,self.plty, marker='o',ms=self.PlotSymbolSize, color=self.PlotColor, zorder=self.PlotLevel,transform=ccrs.Geodetic())
+		if plottrend==1:
+			trend=self.sigma_1()
+			plt.quiver(self.pltx,self.plty,np.sin(trend*np.pi/180.),np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel,transform=ccrs.Geodetic())
+			plt.quiver(self.pltx,self.plty,-np.sin(trend*np.pi/180.),-np.cos(trend*np.pi/180.), pivot='tip',color=self.PlotColor,zorder=self.PlotLevel,transform=ccrs.Geodetic())
    
-    def sigma_1(self, quadrant='E'):
-        s1_dir=self.AMS_info.k_max+90.
-        a,b=np.cos(s1_dir*np.pi/180.), np.sin(s1_dir*np.pi/180.)
-        if quadrant=='N':
-            if a<0: s1_dir=s1_dir-180.
-            elif b<0: s1_dir=s1_dir-360.
-        elif quadrant=='S':
-            if a>0: s1_dir=s1_dir+180.
-        elif quadrant=='W':
-            if b>0: s1_dir=s1_dir+180.
-        elif quadrant=='E':
-            if b<0: s1_dir=s1_dir-180. 
-        if s1_dir>360.: s1_dir=s1_dir-360   
-        return s1_dir
-        
-    def rotate(self,rotation):
-        """Rotates pointset by EulerRotation rotation
-        Also rotates the AMS_max direction: doesn't presently incorporate rotation errors
-        """ 
-        #to rotate the fabric eigenvector declinations,need to have some kind of reference.
-        ref_lat,ref_long=sphere_point_along_bearing(self.LocPars.PointLat,self.LocPars.PointLong,self.AMS_info.k_max,0.1)
-        result=rotkit_f.rotatepts(np.column_stack(([self.LocPars.PointLat,ref_lat],[self.LocPars.PointLong,ref_long])),
-                np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
-        #by calculating the bearing to the rotated reference point can rotate the eigenvector dec               
-        rotated=AMS_Locality(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.Age_err,rotation.EndAge,
-                                    result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0],
-                                    sphere_bearing(result[:,0][0],result[:,1][0],result[:,0][1],result[:,1][1]),self.AMS_info.k_max_err],
-                                index=['Name','PlateCode','FeatureAge','Age_err','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing','AMS_max','max_err']),
-                                self.PlotColor,self.PlotLevel,self.PlotSymbolSize)
-        rotated.ReferencePlate=rotation.FixedPlate
-        return rotated
+	def sigma_1(self, quadrant='E'):
+		s1_dir=self.AMS_info.k_max+90.
+		a,b=np.cos(s1_dir*np.pi/180.), np.sin(s1_dir*np.pi/180.)
+		if quadrant=='N':
+			if a<0: s1_dir=s1_dir-180.
+			elif b<0: s1_dir=s1_dir-360.
+		elif quadrant=='S':
+			if a>0: s1_dir=s1_dir+180.
+		elif quadrant=='W':
+			if b>0: s1_dir=s1_dir+180.
+		elif quadrant=='E':
+			if b<0: s1_dir=s1_dir-180. 
+		if s1_dir>360.: s1_dir=s1_dir-360   
+		return s1_dir
+		
+	def rotate(self,rotation):
+		"""Rotates pointset by EulerRotation rotation
+		Also rotates the AMS_max direction: doesn't presently incorporate rotation errors
+		""" 
+		#to rotate the fabric eigenvector declinations,need to have some kind of reference.
+		ref_lat,ref_long=sphere_point_along_bearing(self.LocPars.PointLat,self.LocPars.PointLong,self.AMS_info.k_max,0.1)
+		result=rotkit_f.rotatepts(np.column_stack(([self.LocPars.PointLat,ref_lat],[self.LocPars.PointLong,ref_long])),
+				np.array([rotation.RotPars.tolist()+rotation.Covariances.tolist()+[rotation.EndAge]]),1)
+		#by calculating the bearing to the rotated reference point can rotate the eigenvector dec			   
+		rotated=AMS_Locality(pd.Series([self.PointName,self.PlateCode,self.FeatureAge,self.Age_err,rotation.EndAge,
+									result[:,0][0],result[:,1][0],result[:,3][0],result[:,4][0],result[:,5][0],
+									sphere_bearing(result[:,0][0],result[:,1][0],result[:,0][1],result[:,1][1]),self.AMS_info.k_max_err],
+								index=['Name','PlateCode','FeatureAge','Age_err','ReconstructionAge','Lat','Lon','MaxError','MinError','MaxBearing','AMS_max','max_err']),
+								self.PlotColor,self.PlotLevel,self.PlotSymbolSize)
+		rotated.ReferencePlate=rotation.FixedPlate
+		return rotated
 
-    def strain_history(self,rotmodel,ages,moving_plate,changeref=-1):
-        """
-        Reconstructs plate vector directions over ages according to the rotation model
-        Assumes this corresponds to maximum strain axis for region.
-        change_ref option allows you to look at plate motion vector relative to the fixed plate
-        inboard of the deforming region, if have specified small block codes; set it to the relevent platecode.
-        Note: assumes that you want forward motion, so will reverse age order.
-        """
-        ages.reverse()
-        if changeref>0:
-            ActualPlate=self.PlateCode
-            self.PlateCode=changeref
-        result=pd.DataFrame([self.motion_vector(moving_plate,rotmodel,age1,age2,1) for age1,age2 in zip (ages[:-1],ages[1:])])
-        if changeref>0:
-            self.PlateCode=ActualPlate
-        return result
+	def strain_history(self,rotmodel,ages,moving_plate,changeref=-1):
+		"""
+		Reconstructs plate vector directions over ages according to the rotation model
+		Assumes this corresponds to maximum strain axis for region.
+		change_ref option allows you to look at plate motion vector relative to the fixed plate
+		inboard of the deforming region, if have specified small block codes; set it to the relevent platecode.
+		Note: assumes that you want forward motion, so will reverse age order.
+		"""
+		ages.reverse()
+		if changeref>0:
+			ActualPlate=self.PlateCode
+			self.PlateCode=changeref
+		result=pd.DataFrame([self.motion_vector(moving_plate,rotmodel,age1,age2,1) for age1,age2 in zip (ages[:-1],ages[1:])])
+		if changeref>0:
+			self.PlateCode=ActualPlate
+		return result
 
 class PMag_Locality(Point):
-    """ A sampling site with associated AMS data 
-    New Attributes (in addition to those inherited from Point):
-    Age_err: Age error associated with locality
-    DI_info: a pandas series that contains remanence vector information (GeoD,GeoI,TiltD,TiltI,k,alpha95)
-    Tilt_info: a pandas series that contains structural information (DipAzimuth,Dip and optionally FoldMinAge,FoldMaxAge)
-    (Use of Azimuth/Dip rather than strike/dip because that is input to dotilt(), and don't need to worry about different conventions.
-    """
-    def __init__(self, PMag_data,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
-        """Return object
-        
-        """ 
-        Point.__init__(self,PMag_data,PlotColor,PlotLevel,PlotSymbolSize)
-        self.Age_err=PMag_data.Age_err
-        self.DI_info=pd.Series([PMag_data.GeoD,PMag_data.GeoI,PMag_data.TiltD,PMag_data.TiltI,PMag_data.k,PMag_data.alpha95],
-                                index=['GeoD','GeoI','TiltD','TiltI','k','alpha95'])
-        self.Tilt_info=pd.Series([PMag_data.DipAzimuth,PMag_data.Dip,PMag_data.FoldMaxAge,PMag_data.FoldMinAge],
-                                    index=['DipAzimuth','Dip','FoldMaxAge','FoldMinAge']) 
-                                    
-    def vgp(self, tiltcorr=1.):
-        """
-        Calculates VGP for locality. By default assumes that the tilt-corrected remanence is the
-        correct one.
-        """
-        if tiltcorr==1:
-            dec=self.DI_info.TiltD*np.pi/180
-            inc=self.DI_info.TiltI*np.pi/180
-        elif tiltcorr==0:
-            dec=self.DI_info.GeoD*np.pi/180
-            inc=self.DI_info.GeoI*np.pi/180           
-        else: 
-            direction=self.untilt(tiltcorr)
-            dec=direction.Dec*np.pi/180
-            inc=direction.Inc*np.pi/180
-        colat=np.arctan2(inc,2)    
-        vgplat=np.arcsin((np.sin(self.LocPars.PointLat*np.pi/180)*np.cos(colat))+(np.cos(self.LocPars.PointLat*np.pi/180)*np.sin(colat)*np.cos(dec)))
-        beta=np.arcsin((np.sin(colat)*np.sin(dec))/np.cos(vgplat))
-        if np.cos(colat)>=np.sin(self.LocPars.PointLat)*np.sin(vgplat):
-            vgplong=self.LocPars.PointLong*np.pi/180+beta
-        else:
-            vgplong=self.LocPars.PointLong*np.pi/180+np.pi-beta
-        dp=self.DI_info.alpha95*np.pi/180*((1+3*np.cos(colat)**2)/2)
-        dm=self.DI_info.alpha95*np.pi/180*(np.sin(colat)/np.cos(inc))    
-        #eventually am going to want to create a VGP object for this
-        return pd.Series([vgplat*180/np.pi,vgplong*180/np.pi,dp*180/np.pi,dm*180/np.pi],index=['PoleLat','PoleLong','dp','dm'])
+	""" A sampling site with associated AMS data 
+	New Attributes (in addition to those inherited from Point):
+	Age_err: Age error associated with locality
+	DI_info: a pandas series that contains remanence vector information (GeoD,GeoI,TiltD,TiltI,k,alpha95)
+	Tilt_info: a pandas series that contains structural information (DipAzimuth,Dip and optionally FoldMinAge,FoldMaxAge)
+	(Use of Azimuth/Dip rather than strike/dip because that is input to dotilt(), and don't need to worry about different conventions.
+	"""
+	def __init__(self, PMag_data,PlotColor='grey',PlotLevel=5,PlotSymbolSize=2):
+		"""Return object
+		
+		""" 
+		Point.__init__(self,PMag_data,PlotColor,PlotLevel,PlotSymbolSize)
+		self.Age_err=PMag_data.Age_err
+		self.DI_info=pd.Series([PMag_data.GeoD,PMag_data.GeoI,PMag_data.TiltD,PMag_data.TiltI,PMag_data.k,PMag_data.alpha95],
+								index=['GeoD','GeoI','TiltD','TiltI','k','alpha95'])
+		self.Tilt_info=pd.Series([PMag_data.DipAzimuth,PMag_data.Dip,PMag_data.FoldMaxAge,PMag_data.FoldMinAge],
+									index=['DipAzimuth','Dip','FoldMaxAge','FoldMinAge']) 
+									
+	def vgp(self, tiltcorr=1.):
+		"""
+		Calculates VGP for locality. By default assumes that the tilt-corrected remanence is the
+		correct one.
+		"""
+		if tiltcorr==1:
+			dec=self.DI_info.TiltD*np.pi/180
+			inc=self.DI_info.TiltI*np.pi/180
+		elif tiltcorr==0:
+			dec=self.DI_info.GeoD*np.pi/180
+			inc=self.DI_info.GeoI*np.pi/180		   
+		else: 
+			direction=self.untilt(tiltcorr)
+			dec=direction.Dec*np.pi/180
+			inc=direction.Inc*np.pi/180
+		colat=np.arctan2(inc,2)	
+		vgplat=np.arcsin((np.sin(self.LocPars.PointLat*np.pi/180)*np.cos(colat))+(np.cos(self.LocPars.PointLat*np.pi/180)*np.sin(colat)*np.cos(dec)))
+		beta=np.arcsin((np.sin(colat)*np.sin(dec))/np.cos(vgplat))
+		if np.cos(colat)>=np.sin(self.LocPars.PointLat)*np.sin(vgplat):
+			vgplong=self.LocPars.PointLong*np.pi/180+beta
+		else:
+			vgplong=self.LocPars.PointLong*np.pi/180+np.pi-beta
+		dp=self.DI_info.alpha95*np.pi/180*((1+3*np.cos(colat)**2)/2)
+		dm=self.DI_info.alpha95*np.pi/180*(np.sin(colat)/np.cos(inc))	
+		#eventually am going to want to create a VGP object for this
+		return pd.Series([vgplat*180/np.pi,vgplong*180/np.pi,dp*180/np.pi,dm*180/np.pi],index=['PoleLat','PoleLong','dp','dm'])
 
-    def untilt(self,untilting=1):
-        """
-        performs a partial tilt correction according to untilting (0=geographic, 1=stratigraphic)
-        adapted from the dotilt routine in PMagPy (Lisa Tauxe) 
-        """
-        rad=np.pi/180. # converts from degrees to radians
-        X=dir2cart([self.DI_info.GeoD,self.DI_info.GeoI,1.]) # get cartesian coordinates of dec,inc
-    # get some sines and cosines of new coordinate system
-        partial_dip=self.Tilt_info.Dip*untilting
-        sa,ca= -np.sin(self.Tilt_info.DipAzimuth*rad),np.cos(self.Tilt_info.DipAzimuth*rad)
-        cdp,sdp= np.cos(partial_dip*rad),np.sin(partial_dip*rad)
-    # do the rotation
-        xc=X[0]*(sa*sa+ca*ca*cdp)+X[1]*(ca*sa*(1.-cdp))+X[2]*sdp*ca
-        yc=X[0]*ca*sa*(1.-cdp)+X[1]*(ca*ca+sa*sa*cdp)-X[2]*sa*sdp
-        zc=X[0]*ca*sdp-X[1]*sdp*sa-X[2]*cdp
-    # convert back to direction:
-        Dir=cart2dir([xc,yc,-zc])
-        return pd.Series([untilting,Dir[0],Dir[1]],index=['Untilting','Dec','Inc'])
+	def untilt(self,untilting=1):
+		"""
+		performs a partial tilt correction according to untilting (0=geographic, 1=stratigraphic)
+		adapted from the dotilt routine in PMagPy (Lisa Tauxe) 
+		"""
+		rad=np.pi/180. # converts from degrees to radians
+		X=dir2cart([self.DI_info.GeoD,self.DI_info.GeoI,1.]) # get cartesian coordinates of dec,inc
+	# get some sines and cosines of new coordinate system
+		partial_dip=self.Tilt_info.Dip*untilting
+		sa,ca= -np.sin(self.Tilt_info.DipAzimuth*rad),np.cos(self.Tilt_info.DipAzimuth*rad)
+		cdp,sdp= np.cos(partial_dip*rad),np.sin(partial_dip*rad)
+	# do the rotation
+		xc=X[0]*(sa*sa+ca*ca*cdp)+X[1]*(ca*sa*(1.-cdp))+X[2]*sdp*ca
+		yc=X[0]*ca*sa*(1.-cdp)+X[1]*(ca*ca+sa*sa*cdp)-X[2]*sa*sdp
+		zc=X[0]*ca*sdp-X[1]*sdp*sa-X[2]*cdp
+	# convert back to direction:
+		Dir=cart2dir([xc,yc,-zc])
+		return pd.Series([untilting,Dir[0],Dir[1]],index=['Untilting','Dec','Inc'])
 
-    def untilt_history(self):
-        """
-        returns the D,I at 1 Ma steps between formation age and present, with higher resolution steps during the
-        interval defined by FoldMinAge and FoldMaxAge
-        """
-        #Assumes the folding is linear over the specified folding interval, which assumes that the folding age is well
-        # defined. Will be a problem if not, so will need more options.
-        # Probably also at some stage want to make it able to return single age or specific age range..? 
-        tiltages=np.concatenate(((np.arange(0,self.Tilt_info.FoldMinAge)),
-                            np.arange(self.Tilt_info.FoldMinAge,self.Tilt_info.FoldMaxAge,0.1),
-                            np.arange(self.Tilt_info.FoldMaxAge,self.FeatureAge+self.Age_err),
-                            np.array([self.FeatureAge+self.Age_err])))
-        #set untilting to a linear function of position within folding interval
-        tiltcorr=(tiltages-self.Tilt_info.FoldMinAge)/(self.Tilt_info.FoldMaxAge-self.Tilt_info.FoldMinAge)
-        #set untilting to 0 for age points less than Fold Minimum Age
-        tiltcorr[[i for i, age in enumerate(tiltages) if age <= self.Tilt_info.FoldMinAge]]=0.
-        #set untilting to 1 for age points greater than Fold Maximum Age
-        tiltcorr[[i for i, age in enumerate(tiltages) if age>=self.Tilt_info.FoldMaxAge]]=1
-        tiltDI=[]
-        for age, untilt in zip (tiltages,tiltcorr):
-            if untilt==0: tiltDI.append ([age,untilt,self.DI_info.GeoD,self.DI_info.GeoI])
-            elif untilt==1: tiltDI.append ([age,untilt,self.DI_info.TiltD,self.DI_info.TiltI])
-            else: 
-                corrected=self.untilt(untilt)
-                tiltDI.append ([age,untilt,corrected.Dec,corrected.Inc])
-        return pd.DataFrame(tiltDI, columns=['Age','Untilting','Dec','Inc'])
-        
-    def compare_to_predicted(self,rotmodel,abs_ref_frame=3):
-        """
-        between the maximum locality age and the present, compare the D,I values predicted from the specified rotation model to
-        the geographic, synfolding and tilt-corrected D,I (depending on age)
-        """
-        actual_DI=self.untilt_history()
-        predicted_DI=self.predict_DI(actual_DI.Age.values.tolist(),rotmodel,abs_ref_frame)
-        return pd.DataFrame(np.column_stack((actual_DI.Age,actual_DI.Dec,actual_DI.Inc,predicted_DI.PredDec,predicted_DI.PredInc,
-                                    angle([[row.Dec,row.Inc] for i,row in actual_DI.iterrows()],[[row.PredDec,row.PredInc] for i,row in predicted_DI.iterrows()]))),
-                                        columns=['Age','Dec','Inc','PredDec','PredInc','Seperation_Angle'])
+	def untilt_history(self):
+		"""
+		returns the D,I at 1 Ma steps between formation age and present, with higher resolution steps during the
+		interval defined by FoldMinAge and FoldMaxAge
+		"""
+		#Assumes the folding is linear over the specified folding interval, which assumes that the folding age is well
+		# defined. Will be a problem if not, so will need more options.
+		# Probably also at some stage want to make it able to return single age or specific age range..? 
+		tiltages=np.concatenate(((np.arange(0,self.Tilt_info.FoldMinAge)),
+							np.arange(self.Tilt_info.FoldMinAge,self.Tilt_info.FoldMaxAge,0.1),
+							np.arange(self.Tilt_info.FoldMaxAge,self.FeatureAge+self.Age_err),
+							np.array([self.FeatureAge+self.Age_err])))
+		#set untilting to a linear function of position within folding interval
+		tiltcorr=(tiltages-self.Tilt_info.FoldMinAge)/(self.Tilt_info.FoldMaxAge-self.Tilt_info.FoldMinAge)
+		#set untilting to 0 for age points less than Fold Minimum Age
+		tiltcorr[[i for i, age in enumerate(tiltages) if age <= self.Tilt_info.FoldMinAge]]=0.
+		#set untilting to 1 for age points greater than Fold Maximum Age
+		tiltcorr[[i for i, age in enumerate(tiltages) if age>=self.Tilt_info.FoldMaxAge]]=1
+		tiltDI=[]
+		for age, untilt in zip (tiltages,tiltcorr):
+			if untilt==0: tiltDI.append ([age,untilt,self.DI_info.GeoD,self.DI_info.GeoI])
+			elif untilt==1: tiltDI.append ([age,untilt,self.DI_info.TiltD,self.DI_info.TiltI])
+			else: 
+				corrected=self.untilt(untilt)
+				tiltDI.append ([age,untilt,corrected.Dec,corrected.Inc])
+		return pd.DataFrame(tiltDI, columns=['Age','Untilting','Dec','Inc'])
+		
+	def compare_to_predicted(self,rotmodel,abs_ref_frame=3):
+		"""
+		between the maximum locality age and the present, compare the D,I values predicted from the specified rotation model to
+		the geographic, synfolding and tilt-corrected D,I (depending on age)
+		"""
+		actual_DI=self.untilt_history()
+		predicted_DI=self.predict_DI(actual_DI.Age.values.tolist(),rotmodel,abs_ref_frame)
+		return pd.DataFrame(np.column_stack((actual_DI.Age,actual_DI.Dec,actual_DI.Inc,predicted_DI.PredDec,predicted_DI.PredInc,
+									angle([[row.Dec,row.Inc] for i,row in actual_DI.iterrows()],[[row.PredDec,row.PredInc] for i,row in predicted_DI.iterrows()]))),
+										columns=['Age','Dec','Inc','PredDec','PredInc','Seperation_Angle'])
 
 
 

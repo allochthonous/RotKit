@@ -2,7 +2,7 @@
 ! File rotatep.f
       subroutine rotatepts(points,npt,poles,npol,order,rotated)
       integer npt,npol,order,ind
-      real*8 points(npt,2), poles(npol,11), rotated(npt*npol,6)
+      DOUBLE PRECISION points(npt,2), poles(npol,11), rotated(npt*npol,6)
 ! points(lat,long); poles (lat,long,rot,kappa,a-f,age),rotated(rtlat,rtlon,age,amaj,amin,az)
 ! order=1 for all points by each pole, order=2 for each point by every pole    
 !f2py intent(in) npt,npol,order
@@ -30,12 +30,12 @@
       return
       end
       subroutine ptrotate(rlat,rlon,polat,polon,omega,rkaphat,a,b,c,d,e,f,rtlat,rtlon,amaj,amin,az)
-      real*8 a,b,c,d,e,f
-      real*8 n_disp,rlat,rlon,polat,polon,omega,rkaphat,rtlat,rtlon,amaj,amin,az
-      real*8 r(3,3),w(3,3),allmat(3,3),simmat(3,3),ell_ned(3,3)
-      real*8 eval(2),covt(3,3),rotmat(3,3),a1t(3,3),rtmt(3,3)
-      real*8 rtmttp(3,3),tmp(3,3),ell_mat(3,3),ev(3,2)
-      real*8 eig_val(3),eig_vec(3,3),evned(3,2)
+      DOUBLE PRECISION a,b,c,d,e,f
+      DOUBLE PRECISION n_disp,rlat,rlon,polat,polon,omega,rkaphat,rtlat,rtlon,amaj,amin,az
+      DOUBLE PRECISION r(3,3),w(3,3),allmat(3,3),simmat(3,3),ell_ned(3,3)
+      DOUBLE PRECISION eval(2),covt(3,3),rotmat(3,3),a1t(3,3),rtmt(3,3)
+      DOUBLE PRECISION rtmttp(3,3),tmp(3,3),ell_mat(3,3),ev(3,2)
+      DOUBLE PRECISION eig_val(3),eig_vec(3,3),evned(3,2)
       character*30 ians2*1
       parameter (pi=3.14159265)
 	  parameter (raddeg =  180. / pi )
@@ -157,9 +157,9 @@
       end
 
       subroutine make_ell(amaj,amin,az,alat,alon,elat,elon)
-      real*8 amaj,amin,az,alat,alon,vlat,vlon
-      real*8 xlat,xlon,plat,plon,temp1,temp2,zero,ytenin
-      real*8 elat(101),elon(101)  
+      DOUBLE PRECISION amaj,amin,az,alat,alon,vlat,vlon,ang
+      DOUBLE PRECISION xlat,xlon,plat,plon,temp1,temp2,zero,ytenin
+      DOUBLE PRECISION elat(101),elon(101)  
 !f2py intent(in) amaj,amin,az,alat,alon
 !f2py intent(out) elat,elon
       parameter (pi=3.14159265)

@@ -307,11 +307,11 @@
 80101	RAUK	Raukumara Peninsula Block,N Island NZ
 80102	WROA	Wairoa Block, N Island NZ
 80103	CHKG	Central Hikurangi Block, N Island NZ
-80104	WAIR	Wairarapa Block	, N Island NZ
+80104	WAIR	Wairarapa Block, N Island NZ
 80105	AXIR	Axial Ranges Block, N Island NZ
 80106	SWNG	S Wanganui Block, N Island NZ
 80107	NWNG	N Wanganui Block, N Island NZ
-80108	NRTH	Northland Block	, N Island NZ
+80108	NRTH	Northland Block, N Island NZ
 802	ANT	Antarctica and East Antarctica
 803	APN	Antarctic Peninsula
 804	MBL	Marie Byrdland (Ross Terrane) and West Antarctica

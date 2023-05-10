@@ -1,5 +1,5 @@
       subroutine sphcar(lat,long,x1,x2,x3)
-      real*8 lat,long
+      DOUBLE PRECISION lat,long
       x1=cos(lat)*cos(long)
       x2=cos(lat)*sin(long)
       x3=sin(lat)
@@ -7,7 +7,7 @@
       end
 
       subroutine carsph(x1,x2,x3,a,b)
-      real*8 a,b
+      DOUBLE PRECISION a,b
       parameter (pi=dacos(-1.d0))
       a = asin(x3)
       if(.not.(x1.eq.0.d0))goto 23047
@@ -31,8 +31,8 @@
       end
       
       subroutine dmatrix(c1,c2,c3,w,rmatrix)
-      real*8 w
-      real*8 rmatrix(3,3)
+      DOUBLE PRECISION w
+      DOUBLE PRECISION rmatrix(3,3)
       ss = sin(w*0.5)
       r = c1*ss
       s = c2*ss
@@ -51,7 +51,7 @@
       end 
 
       subroutine rot3(a,b,w,r,s)
-      real*8 w,r,s,a,b
+      DOUBLE PRECISION w,r,s,a,b
       call sphcar(a,b,x1,x2,x3)
       t = x1
       x1 = x1*cos(w)-x2*sin(w)
@@ -61,7 +61,7 @@
       end
       
       subroutine rot2(a,b,w,r,s)
-      real*8 w,r,s,a,b
+      DOUBLE PRECISION w,r,s,a,b
       call sphcar(a,b,x1,x2,x3)
       t = x1
       x1 = x1*cos(w)+x3*sin(w)
@@ -71,8 +71,8 @@
       end
     
       subroutine rotp(a,b,w,c,d,f,g)
-      implicit real*8 (a-h,o-z)
-      real*8 c1,d1,c2,d2,c3,d3,c4,d4,f,g,a
+      implicit DOUBLE PRECISION (a-h,o-z)
+      DOUBLE PRECISION c1,d1,c2,d2,c3,d3,c4,d4,f,g,a
       parameter (pi=dacos(-1.d0))
       call rot3(c,d,-b,c1,d1)
       call rot2(c1,d1,a-(pi*0.5),c2,d2)
@@ -84,8 +84,8 @@
 
       subroutine dmatmul(mat1,row1,col1,mat2,row2,col2,mulmat)
       integer row1,col1,row2,col2,i,j,k
-      real*8 mat1(row1,col1),mat2(row2,col2)
-      real*8 mulmat(row1,col2)
+      DOUBLE PRECISION mat1(row1,col1),mat2(row2,col2)
+      DOUBLE PRECISION mulmat(row1,col2)
       do23059 i = 1,row1 
       do23061 j = 1,col2 
       mulmat(i,j) = 0.0d0
@@ -109,11 +109,11 @@
 
       SUBROUTINE DJACOBI(A,N,NP,D,V,NROT)
       integer N,NP
-      real*8 A(NP,NP)
-      real*8 H,THETA
+      DOUBLE PRECISION A(NP,NP)
+      DOUBLE PRECISION H,THETA
       integer NROT
       PARAMETER (NMAX=100)
-      REAL*8 D(NP),V(NP,NP),B(NMAX),Z(NMAX)
+      DOUBLE PRECISION D(NP),V(NP,NP),B(NMAX),Z(NMAX)
       DO 12 IP=1,N
         DO 11 IQ=1,N
           V(IP,IQ)=0.d0
